@@ -7,6 +7,7 @@ from typing import Optional, Tuple
 import asyncio
 from pathlib import Path
 import numpy as np
+import numpy.typing as npt
 import mmap
 import time
 import math
@@ -111,7 +112,7 @@ async def untilTrue(box: list[bool]):
 
 async def main(device: str,
          samplingFrequency: float,
-         outDataLength: int,
+         outData: npt.NDArray[np.uint16],
          outputChannel: str,
          inputChannel: str,
          outputRegenerations: int = 1,
@@ -120,6 +121,7 @@ async def main(device: str,
          minInputVoltage: float = -10.0,
          maxInputVoltage: float = 10.0,
          ):
+    outDataLength = outData.size
     # Reading data in the every n samples callback takes a little under 65 ms on average,
     # but up to 100 ms for the first run.
     # For the callback to have enough time to run, we need n such that n > tcallback / Tsample
@@ -129,7 +131,7 @@ async def main(device: str,
     # TODO: provide a way to measure the callback duration, rather than hard code it
     callbackDuration = 65e-3 # Mean value (set margin to account for initial callback and latency spikes)
     callbackMinRegenerations = math.ceil(callbackRateMargin * callbackDuration * samplingFrequency / outDataLength)
-    callbackRegenerations = firstDivisorFrom(callbackMinRegenerations, outputRegenerations)
+    callbackRegenerations = firstDivisorFrom(callbackMinRegenerations, outputRegenerations) if callbackMinRegenerations < outputRegenerations else outputRegenerations
     sampleInterval = outDataLength * callbackRegenerations
     callbacksToRun = outputRegenerations // callbackRegenerations
     inputBufferMargin = 2 # Sets the size of the input buffer in units of callback data to prevent circular overwriting.
@@ -141,11 +143,6 @@ async def main(device: str,
     aoStartTrigger = f"/{device}/ao/StartTrigger"
 
     regeneratedOutDataLength = outputRegenerations * outDataLength
-
-    outData = np.zeros((outDataLength,), dtype = np.uint16)
-    outData[0] = 1024 # Arbitrary values at the start and end of an output generation for debugging
-    outData[-2] = 256
-    outData[-1] = 4096
 
     coChannel = "ctr0"
     coInternalOutput = "Ctr0InternalOutput"
@@ -192,12 +189,18 @@ async def main(device: str,
 if __name__ == "__main__":
     niSystem = NISystem.local()
     print(f"NI driver version: {niDriverVersion(niSystem)}")
+
+    ramp = np.zeros((2**16,), dtype = np.uint16)
+    for i in range(2**16):
+        ramp[i] = i
+    out = np.concatenate([ramp, np.flip(ramp)])
+
     asyncio.run(main(
         device = niDevice(niSystem),
         outputChannel = "ao3",
         inputChannel = "ai4",
         samplingFrequency = 2e6,
-        outDataLength = 256 * 1024,
-        outputRegenerations = 8,
+        outData = out,
+        outputRegenerations = 1,
         ))
 
