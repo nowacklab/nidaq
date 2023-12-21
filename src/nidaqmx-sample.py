@@ -127,14 +127,14 @@ async def main(device: str,
     # For the callback to have enough time to run, we need n such that n > tcallback / Tsample
     # We also would like n to be a multiple of the output data length.
     # This must also be a divisor of the total number of samples.
-    callbackRateMargin = 2 # Minimum callbacks worth of data to multiply the callback sample interval to keep up with data.
+    callbackRateMargin = 4 # Minimum callbacks worth of data to multiply the callback sample interval to keep up with data.
     # TODO: provide a way to measure the callback duration, rather than hard code it
     callbackDuration = 65e-3 # Mean value (set margin to account for initial callback and latency spikes)
     callbackMinRegenerations = math.ceil(callbackRateMargin * callbackDuration * samplingFrequency / outDataLength)
     callbackRegenerations = firstDivisorFrom(callbackMinRegenerations, outputRegenerations) if callbackMinRegenerations < outputRegenerations else outputRegenerations
     sampleInterval = outDataLength * callbackRegenerations
     callbacksToRun = outputRegenerations // callbackRegenerations
-    inputBufferMargin = 2 # Sets the size of the input buffer in units of callback data to prevent circular overwriting.
+    inputBufferMargin = 4 # Sets the size of the input buffer in units of callback data to prevent circular overwriting.
     inputBufferSize = sampleInterval * inputBufferMargin
 
     print(f"sampleInterval: {sampleInterval}")
@@ -153,7 +153,7 @@ async def main(device: str,
 
     aoTask = ni.Task("ao")
     aoTask.ao_channels.add_ao_voltage_chan(f"{device}/{outputChannel}", "", minOutputVoltage, maxOutputVoltage)
-    aoTask.timing.cfg_samp_clk_timing(samplingFrequency, source = coInternalOutput, active_edge = Edge.FALLING, sample_mode = AcquisitionType.CONTINUOUS, samps_per_chan = regeneratedOutDataLength)
+    aoTask.timing.cfg_samp_clk_timing(samplingFrequency, source = coInternalOutput, active_edge = Edge.FALLING, sample_mode = AcquisitionType.FINITE, samps_per_chan = regeneratedOutDataLength)
     aoTask.triggers.start_trigger.cfg_dig_edge_start_trig(coInternalOutput, Edge.RISING)
     aoTask.out_stream.regen_mode = RegenerationMode.ALLOW_REGENERATION
     aoWriter = AnalogUnscaledWriter(aoTask.out_stream, auto_start = False)
@@ -162,7 +162,7 @@ async def main(device: str,
 
     aiTask = ni.Task("ai")
     aiTask.ai_channels.add_ai_voltage_chan(f"{device}/{inputChannel}", "", TerminalConfiguration.DEFAULT, minInputVoltage, maxInputVoltage)
-    aiTask.timing.cfg_samp_clk_timing(samplingFrequency, source = coInternalOutput, active_edge = Edge.RISING, sample_mode = AcquisitionType.CONTINUOUS, samps_per_chan = regeneratedOutDataLength)
+    aiTask.timing.cfg_samp_clk_timing(samplingFrequency, source = coInternalOutput, active_edge = Edge.RISING, sample_mode = AcquisitionType.FINITE, samps_per_chan = regeneratedOutDataLength)
     aiTask.triggers.start_trigger.cfg_dig_edge_start_trig(aoStartTrigger, Edge.RISING)
     aiTask.in_stream.input_buf_size = inputBufferSize
 
@@ -192,9 +192,9 @@ if __name__ == "__main__":
 
     ramp = np.zeros((2**16,), dtype = np.int16)
     for i in range(2**16):
-        ramp[i] = (2**(16 - 1)) - 1
+        #ramp[i] = (2**(16 - 1)) - 1
         #ramp[i] = -(2**(16 - 1))
-        #ramp[i] = -(2**(16 - 1)) + i
+        ramp[i] = -(2**(16 - 1)) + i
         #ramp[i] = i
     out = np.concatenate([ramp, np.flip(ramp)])
 
@@ -202,8 +202,8 @@ if __name__ == "__main__":
         device = niDevice(niSystem),
         outputChannel = "ao3",
         inputChannel = "ai4",
-        samplingFrequency = 100e3,
+        samplingFrequency = 2e6,
         outData = out,
-        outputRegenerations = 1,
+        outputRegenerations = 64,
         ))
 
