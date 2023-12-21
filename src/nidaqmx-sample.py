@@ -50,7 +50,7 @@ def writeSamplesCallback(task, regenerations, callbacksToRun, doneBox, numberOfS
     f = open("./testdata.bin", "wb+")
     f.seek(0, 2) # Go to end of file
     initFileLength = f.tell()
-    sampleBytes = 2 # is generally np.dtype(np.uint16).itemsize
+    sampleBytes = 2 # is generally np.dtype(np.int16).itemsize
 
     # We want to mmap starting from the last page (really, size mmap.ALLOCATIONGRANULARITY to be cross-platform)
     # before the end of the file, and ending at the minimum size to fit the data.
@@ -64,7 +64,7 @@ def writeSamplesCallback(task, regenerations, callbacksToRun, doneBox, numberOfS
     f.truncate(initFileLength + fullDataLength) # Extend by full data length
     
     mm = mmap.mmap(f.fileno(), length = dataOffset + fullDataLength, access = mmap.ACCESS_WRITE, offset = initPageOffset)
-    data = np.ndarray((1, numberOfSamples), dtype = np.uint16, buffer = mm, order = 'C', offset = dataOffset)
+    data = np.ndarray((1, numberOfSamples), dtype = np.int16, buffer = mm, order = 'C', offset = dataOffset)
 
     outdir = Path.cwd()
     aiReader = AnalogUnscaledReader(task.in_stream)
@@ -76,7 +76,7 @@ def writeSamplesCallback(task, regenerations, callbacksToRun, doneBox, numberOfS
         ta = time.perf_counter()
         nonlocal n, data, aiReader
 
-        aiReader.read_uint16(data, numberOfSamples)
+        aiReader.read_int16(data, numberOfSamples)
 
         tb = time.perf_counter()
         print(f"\t{tb - ta} s elapsed in callback {n}")
@@ -112,7 +112,7 @@ async def untilTrue(box: list[bool]):
 
 async def main(device: str,
          samplingFrequency: float,
-         outData: npt.NDArray[np.uint16],
+         outData: npt.NDArray[np.int16],
          outputChannel: str,
          inputChannel: str,
          outputRegenerations: int = 1,
@@ -158,7 +158,7 @@ async def main(device: str,
     aoTask.out_stream.regen_mode = RegenerationMode.ALLOW_REGENERATION
     aoWriter = AnalogUnscaledWriter(aoTask.out_stream, auto_start = False)
     aoWriter.verify_array_shape = False # set True while debugging
-    aoWriter.write_uint16(np.reshape(outData, (1, outDataLength)))
+    aoWriter.write_int16(np.reshape(outData, (1, outDataLength)))
 
     aiTask = ni.Task("ai")
     aiTask.ai_channels.add_ai_voltage_chan(f"{device}/{inputChannel}", "", TerminalConfiguration.DEFAULT, minInputVoltage, maxInputVoltage)
@@ -190,16 +190,19 @@ if __name__ == "__main__":
     niSystem = NISystem.local()
     print(f"NI driver version: {niDriverVersion(niSystem)}")
 
-    ramp = np.zeros((2**16,), dtype = np.uint16)
+    ramp = np.zeros((2**16,), dtype = np.int16)
     for i in range(2**16):
-        ramp[i] = i
+        ramp[i] = (2**(16 - 1)) - 1
+        #ramp[i] = -(2**(16 - 1))
+        #ramp[i] = -(2**(16 - 1)) + i
+        #ramp[i] = i
     out = np.concatenate([ramp, np.flip(ramp)])
 
     asyncio.run(main(
         device = niDevice(niSystem),
         outputChannel = "ao3",
         inputChannel = "ai4",
-        samplingFrequency = 2e6,
+        samplingFrequency = 100e3,
         outData = out,
         outputRegenerations = 1,
         ))
