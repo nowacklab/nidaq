@@ -20,6 +20,9 @@ from nidaqmx.constants import AcquisitionType, Edge, RegenerationMode, TerminalC
 class NIDeviceError(Exception):
     pass
 
+class DataFileError(Exception):
+    pass
+
 def niDriverVersion(system: Optional[NISystem] = None) -> str:
     if system is None:
         system = NISystem.local()
@@ -44,10 +47,15 @@ def niDevice(system: Optional[NISystem] = None) -> str:
 #       Rate issues are thrown as errors from the reading function.
 # TODO: What happens to tasks and callbacks when somebody presses Ctrl-C?
 
-def writeSamplesCallback(task, regenerations, callbacksToRun, doneBox, numberOfSamples):
+def writeSamplesCallback(task, callbacksToRun, doneBox, callbackSamples):
     n = 1
 
-    f = open("./testdata.bin", "wb+")
+    filepath = Path("./testdata.bin")
+    exists = filepath.exists()
+    is_file = filepath.is_file()
+    if exists ^ is_file:
+        raise DataFileError(f"{filepath} is already used by a non-file")
+    f = open(filepath, ('r' if is_file else 'x') + "b+")
     f.seek(0, 2) # Go to end of file
     initFileLength = f.tell()
     sampleBytes = 2 # is generally np.dtype(np.int16).itemsize
@@ -57,14 +65,13 @@ def writeSamplesCallback(task, regenerations, callbacksToRun, doneBox, numberOfS
     # Then create the numpy array from the mmap with the offset from the start of the mmap to the start of the data.
     # This way we mmap the minimum amount of the file we need, and the length of the file is the length of the data,
     # and does not need to be rounded up to the page size.
-    fullDataLength = regenerations * numberOfSamples * sampleBytes
+    fullDataLength = callbacksToRun * callbackSamples * sampleBytes
     initPageOffset = mmap.ALLOCATIONGRANULARITY * math.floor(initFileLength / mmap.ALLOCATIONGRANULARITY)
-    dataOffset = initFileLength % mmap.ALLOCATIONGRANULARITY
+    dataMmapOffset = initFileLength % mmap.ALLOCATIONGRANULARITY
 
     f.truncate(initFileLength + fullDataLength) # Extend by full data length
     
-    mm = mmap.mmap(f.fileno(), length = dataOffset + fullDataLength, access = mmap.ACCESS_WRITE, offset = initPageOffset)
-    data = np.ndarray((1, numberOfSamples), dtype = np.int16, buffer = mm, order = 'C', offset = dataOffset)
+    mm = mmap.mmap(f.fileno(), length = dataMmapOffset + fullDataLength, access = mmap.ACCESS_WRITE, offset = initPageOffset)
 
     outdir = Path.cwd()
     aiReader = AnalogUnscaledReader(task.in_stream)
@@ -72,17 +79,22 @@ def writeSamplesCallback(task, regenerations, callbacksToRun, doneBox, numberOfS
     # Why does this decrease the read time from ~65 ms to ~16 ms? Is that all really from numpy?
     aiReader.verify_array_shape = False # set True while debugging
 
-    def callback(taskHandle, everyNSamplesEventType, numberOfSamples, callbackData):
+    print("_" * callbacksToRun + "|")
+
+    def callback(taskHandle, everyNSamplesEventType, callbackSamples, callbackData):
         ta = time.perf_counter()
-        nonlocal n, data, aiReader
+        nonlocal n, aiReader
 
-        aiReader.read_int16(data, numberOfSamples)
+        if doneBox[0]:
+            return 0
 
-        tb = time.perf_counter()
-        print(f"\t{tb - ta} s elapsed in callback {n}")
+        dataCallbackOffset = (n - 1) * callbackSamples * sampleBytes
+        data = np.ndarray((1, callbackSamples), dtype = np.int16, buffer = mm, order = 'C', offset = dataMmapOffset + dataCallbackOffset)
+        aiReader.read_int16(data, callbackSamples)
+
+        print("*", end = '', flush = True)
 
         if n >= callbacksToRun:
-            ta = time.perf_counter()
             doneBox[0] = True
             del data
             mm.flush()
@@ -90,8 +102,7 @@ def writeSamplesCallback(task, regenerations, callbacksToRun, doneBox, numberOfS
             # For now, close f here,
             # since the test callback made f instead of getting it as a parameter
             f.close()
-            tb = time.perf_counter()
-            print(f"Time to flush and close: {tb - ta} s")
+            print("|")
         else:
             n += 1
 
@@ -128,18 +139,20 @@ async def main(device: str,
     # We also would like n to be a multiple of the output data length.
     # This must also be a divisor of the total number of samples.
     callbackRateMargin = 4 # Minimum callbacks worth of data to multiply the callback sample interval to keep up with data.
-    # TODO: provide a way to measure the callback duration, rather than hard code it
-    callbackDuration = 65e-3 # Mean value (set margin to account for initial callback and latency spikes)
+    # TODO: provide a way to automatically determine the callback duration, rather than hard code it
+    callbackDuration = 50e-3 # Mean value (set margin to account for initial callback and latency spikes)
     callbackMinRegenerations = math.ceil(callbackRateMargin * callbackDuration * samplingFrequency / outDataLength)
     callbackRegenerations = firstDivisorFrom(callbackMinRegenerations, outputRegenerations) if callbackMinRegenerations < outputRegenerations else outputRegenerations
-    sampleInterval = outDataLength * callbackRegenerations
+    callbackSamples = outDataLength * callbackRegenerations
     callbacksToRun = outputRegenerations // callbackRegenerations
     inputBufferMargin = 4 # Sets the size of the input buffer in units of callback data to prevent circular overwriting.
-    inputBufferSize = sampleInterval * inputBufferMargin
+    inputBufferSize = callbackSamples * inputBufferMargin
 
-    print(f"sampleInterval: {sampleInterval}")
+    print(f"outDataLength: {outDataLength}")
+    print(f"callbackRegenerations: {callbackRegenerations}")
+    print(f"callbackSamples: {callbackSamples}")
 
-    # We know that we are using an X Series device, so we do not need the logic for getting the fully qualified name of the trigger.
+    # We know that we are using an X Series device, so we do not need the generic logic for getting the fully qualified name of the trigger, which may differ depending on the device.
     aoStartTrigger = f"/{device}/ao/StartTrigger"
 
     regeneratedOutDataLength = outputRegenerations * outDataLength
@@ -167,8 +180,8 @@ async def main(device: str,
     aiTask.in_stream.input_buf_size = inputBufferSize
 
     aiCallbackDone = [False]
-    aiCallback = writeSamplesCallback(aiTask, regenerations = outputRegenerations, callbacksToRun = callbacksToRun, doneBox = aiCallbackDone, numberOfSamples = sampleInterval)
-    aiTask.register_every_n_samples_acquired_into_buffer_event(sampleInterval, aiCallback)
+    aiCallback = writeSamplesCallback(aiTask, callbacksToRun = callbacksToRun, doneBox = aiCallbackDone, callbackSamples = callbackSamples)
+    aiTask.register_every_n_samples_acquired_into_buffer_event(callbackSamples, aiCallback)
 
     coTask.start()
     aiTask.start()
@@ -190,13 +203,19 @@ if __name__ == "__main__":
     niSystem = NISystem.local()
     print(f"NI driver version: {niDriverVersion(niSystem)}")
 
-    ramp = np.zeros((2**16,), dtype = np.int16)
-    for i in range(2**16):
-        #ramp[i] = (2**(16 - 1)) - 1
-        #ramp[i] = -(2**(16 - 1))
-        ramp[i] = -(2**(16 - 1)) + i
-        #ramp[i] = i
-    out = np.concatenate([ramp, np.flip(ramp)])
+    outbits = 16
+    # Got intermittent DaqError (-200621) Onboard device memory underflow
+    # for a step of 256.
+    step = 128
+    peak = 2**outbits
+    x = peak // step
+    out = np.zeros((2 * x,), dtype = np.int16)
+    for i in range(x // 2):
+        out[i] = i*step
+    for i in range(1, x + 1):
+        out[i + (x // 2) - 1] = peak // 2 - i*step
+    for i in range(x // 2):
+        out[i + 3 * x // 2] = -peak // 2 + i*step
 
     asyncio.run(main(
         device = niDevice(niSystem),
@@ -204,6 +223,10 @@ if __name__ == "__main__":
         inputChannel = "ai4",
         samplingFrequency = 2e6,
         outData = out,
-        outputRegenerations = 64,
+        outputRegenerations = 1,
+        minOutputVoltage = -5.0,
+        maxOutputVoltage = 5.0,
+        minInputVoltage = -0.2,
+        maxInputVoltage = 0.2,
         ))
 
