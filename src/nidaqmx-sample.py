@@ -4,6 +4,8 @@ TODO: Verify stability and that data is output and saved correctly.
 """
 
 from typing import Optional, Tuple
+from dataclasses import dataclass
+import io
 import asyncio
 from pathlib import Path
 import numpy as np
@@ -17,10 +19,52 @@ from nidaqmx.stream_writers import AnalogSingleChannelWriter, AnalogUnscaledWrit
 from nidaqmx.stream_readers import AnalogSingleChannelReader, AnalogUnscaledReader
 from nidaqmx.constants import AcquisitionType, Edge, RegenerationMode, TerminalConfiguration, WAIT_INFINITELY
 
-class NIDeviceError(Exception):
-    pass
+@dataclass
+class DAQOutputSignal:
+    "Data necessary to describe a DAQ output waveform, independent of channel or range."
+    samples: npt.ArrayLike[np.int16]
+    regenerations: int
+    frequency: float
 
-class DataFileError(Exception):
+@dataclass
+class DAQOutput:
+    "Data necessary for a NI DAQ to produce an output waveform."
+    device: str
+    signal: DAQOutputSignal
+    channel: str
+    minVoltage: float
+    maxVoltage: float
+
+    def __post_init__(self):
+        # TODO: validate output frequency, sizes, voltages.
+        pass
+
+@dataclass
+class DAQInput:
+    "Data necessary to set up a NI DAQ input."
+    device: str
+    channel: str
+    minVoltage: float
+    maxVoltage: float
+
+    def __post_init__(self):
+        # TODO: validate voltages 
+        pass
+
+@dataclass
+class DAQSingleIO:
+    in: DAQInput
+    out: DAQOutput
+
+    def __post_init__(self):
+        if self.in.device != self.out.device:
+            raise ValueError("""
+Synchronized IO across different DAQ devices is possible, but not implemented.
+Make sure that the input and output NI DAQ devices are the same.
+            """.strip())
+
+
+class NIDeviceError(Exception):
     pass
 
 def niDriverVersion(system: Optional[NISystem] = None) -> str:
@@ -47,17 +91,17 @@ def niDevice(system: Optional[NISystem] = None) -> str:
 #       Rate issues are thrown as errors from the reading function.
 # TODO: What happens to tasks and callbacks when somebody presses Ctrl-C?
 
-def writeSamplesCallback(task, callbacksToRun, doneBox, callbackSamples):
+def writeSamplesCallback(
+        task: ni.Task,
+        dataFile: io.BufferedIOBase,
+        callbacksToRun: int,
+        doneBox: list[bool],
+        callbackSamples: int
+        ):
     n = 1
 
-    filepath = Path("./testdata.bin")
-    exists = filepath.exists()
-    is_file = filepath.is_file()
-    if exists ^ is_file:
-        raise DataFileError(f"{filepath} is already used by a non-file")
-    f = open(filepath, ('r' if is_file else 'x') + "b+")
-    f.seek(0, 2) # Go to end of file
-    initFileLength = f.tell()
+    dataFile.seek(0, 2) # Go to end of file
+    initFileLength = dataFile.tell()
     sampleBytes = 2 # is generally np.dtype(np.int16).itemsize
 
     # We want to mmap starting from the last page (really, size mmap.ALLOCATIONGRANULARITY to be cross-platform)
@@ -69,9 +113,9 @@ def writeSamplesCallback(task, callbacksToRun, doneBox, callbackSamples):
     initPageOffset = mmap.ALLOCATIONGRANULARITY * math.floor(initFileLength / mmap.ALLOCATIONGRANULARITY)
     dataMmapOffset = initFileLength % mmap.ALLOCATIONGRANULARITY
 
-    f.truncate(initFileLength + fullDataLength) # Extend by full data length
+    dataFile.truncate(initFileLength + fullDataLength) # Extend by full data length
     
-    mm = mmap.mmap(f.fileno(), length = dataMmapOffset + fullDataLength, access = mmap.ACCESS_WRITE, offset = initPageOffset)
+    mm = mmap.mmap(dataFile.fileno(), length = dataMmapOffset + fullDataLength, access = mmap.ACCESS_WRITE, offset = initPageOffset)
 
     outdir = Path.cwd()
     aiReader = AnalogUnscaledReader(task.in_stream)
@@ -99,9 +143,6 @@ def writeSamplesCallback(task, callbacksToRun, doneBox, callbackSamples):
             del data
             mm.flush()
             mm.close()
-            # For now, close f here,
-            # since the test callback made f instead of getting it as a parameter
-            f.close()
             print("|")
         else:
             n += 1
@@ -109,10 +150,8 @@ def writeSamplesCallback(task, callbacksToRun, doneBox, callbackSamples):
         return 0
     return callback
 
-def firstDivisorFrom(a, b):
-    """
-    Returns the first divisor of b that is greater than or equal to a.
-    """
+def firstDivisorFrom(a: int, b: int) -> int:
+    "Returns the first divisor of b that is greater than or equal to a."
     while b % a != 0:
         a += 1
     return a
@@ -121,17 +160,22 @@ async def untilTrue(box: list[bool]):
     while not box[0]:
         continue
 
-async def main(device: str,
-         samplingFrequency: float,
-         outData: npt.NDArray[np.int16],
-         outputChannel: str,
-         inputChannel: str,
-         outputRegenerations: int = 1,
-         minOutputVoltage: float = -10.0,
-         maxOutputVoltage: float = 10.0,
-         minInputVoltage: float = -10.0,
-         maxInputVoltage: float = 10.0,
-         ):
+async def daqSingleIO(
+        dio: DAQSingleIO,
+        dataFile = dataFile,
+        ) -> bool:
+
+    device = dio.in.device
+    samplingFrequency = dio.out.signal.frequency
+    outData = dio.out.signal.samples
+    outputChannel = dio.out.channel
+    inputChannel = dio.in.channel
+    outputRegenerations = dio.out.regenerations
+    minOutputVoltage = dio.out.minVoltage
+    maxOutputVoltage = dio.out.maxVoltage
+    minInputVoltage = dio.in.minVoltage
+    maxInputVoltage = dio.in.maxVoltage
+
     outDataLength = outData.size
     # Reading data in the every n samples callback takes a little under 65 ms on average,
     # but up to 100 ms for the first run.
@@ -180,7 +224,7 @@ async def main(device: str,
     aiTask.in_stream.input_buf_size = inputBufferSize
 
     aiCallbackDone = [False]
-    aiCallback = writeSamplesCallback(aiTask, callbacksToRun = callbacksToRun, doneBox = aiCallbackDone, callbackSamples = callbackSamples)
+    aiCallback = writeSamplesCallback(aiTask, dataFile = dataFile, callbacksToRun = callbacksToRun, doneBox = aiCallbackDone, callbackSamples = callbackSamples)
     aiTask.register_every_n_samples_acquired_into_buffer_event(callbackSamples, aiCallback)
 
     coTask.start()
@@ -198,35 +242,65 @@ async def main(device: str,
     coTask.stop()
     coTask.close()
 
+    return True
+
+
+class BinaryFileError(Exception):
+    pass
+
+def openBinaryFileWithoutTruncating(filepath: str | Path) -> io.BufferedIOBase:
+    filePath = Path(filepath)
+    exists = filepath.exists()
+    is_file = filepath.is_file()
+    if exists ^ is_file:
+        raise BinaryFileError(f"{filepath} is already used by a non-file")
+    return open(filepath, ('r' if is_file else 'x') + "b+")
+
+def triangleSamplesFromZero(peak: int, step: int, bits: int) -> npt.NDArray[np.int16]:
+    x = peak // step
+    samples = np.zeros((2 * x,), dtype = np.int16)
+    for i in range(x // 2):
+        samples[i] = i*step
+    for i in range(1, x + 1):
+        samples[i + (x // 2) - 1] = peak // 2 - i*step
+    for i in range(x // 2):
+        samples[i + 3 * x // 2] = -peak // 2 + i*step
+    return samples
+
 
 if __name__ == "__main__":
     niSystem = NISystem.local()
     print(f"NI driver version: {niDriverVersion(niSystem)}")
 
-    outbits = 16
-    # Got intermittent DaqError (-200621) Onboard device memory underflow
-    # for a step of 256.
-    step = 128
-    peak = 2**outbits
-    x = peak // step
-    out = np.zeros((2 * x,), dtype = np.int16)
-    for i in range(x // 2):
-        out[i] = i*step
-    for i in range(1, x + 1):
-        out[i + (x // 2) - 1] = peak // 2 - i*step
-    for i in range(x // 2):
-        out[i + 3 * x // 2] = -peak // 2 + i*step
+    device = niDevice(niSystem)
+    bits = 16 # TODO: get output bits from device
 
-    asyncio.run(main(
-        device = niDevice(niSystem),
-        outputChannel = "ao3",
-        inputChannel = "ai4",
-        samplingFrequency = 2e6,
-        outData = out,
-        outputRegenerations = 1,
-        minOutputVoltage = -5.0,
-        maxOutputVoltage = 5.0,
-        minInputVoltage = -0.2,
-        maxInputVoltage = 0.2,
-        ))
+    dio = DAQSingleIO(
+            DAQInput(
+                device = device,
+                channel = "ai4",
+                minVoltage = -0.2,
+                maxVoltage = 0.2,
+                ),
+            DAQOutput(
+                device = device,
+                signal = DAQOutputSignal(
+                    samples = triangleSamplesFromZero(
+                        peak = 2**bits,
+                        step = 128, # Got an device memory underflow for step = 256
+                        bits = bits,
+                        ),
+                    regenerations = 1,
+                    frequency = 2e6,
+                    ),
+                channel = "ao3",
+                minVoltage = -5.0,
+                maxVoltage = 5.0,
+                ),
+            )
+
+    with openBinaryFileWithoutTruncating("testdata.bin") as dataFile:
+        asyncio.run(
+                daqSingleIO(dio = dio, dataFile = dataFile)
+                )
 
