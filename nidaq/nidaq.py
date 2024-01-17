@@ -268,7 +268,7 @@ def triangleSamplesFromZero(peak: int, step: int, bits: int) -> npt.NDArray[np.i
     return samples
 
 
-if __name__ == "__main__":
+def nidaq():
     niSystem = NISystem.local()
     print(f"NI driver version: {niDriverVersion(niSystem)}")
 

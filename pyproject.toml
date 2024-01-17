@@ -1,0 +1,36 @@
+[project]
+name = "nidaq"
+authors = [
+{ name="Alex Striff", email="abs299@cornell.edu" },
+]
+description = "Control a X-Series NI DAQ (USB-6363)."
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+dependencies = [
+  "numpy",
+]
+dynamic = [
+  "version",
+]
+
+[project.urls]
+Homepage = "https://github.com/nowacklab/nidaq"
+Issues = "https://github.com/nowacklab/nidaq/issues"
+
+[build-system]
+requires = ["setuptools", "versioneer[toml]==0.29"]
+build-backend = "setuptools.build_meta"
+
+[tool.versioneer]
+VCS = "git"
+style = "pep440"
+versionfile_source = "nidaq/_version.py"
+versionfile_build = "nidaq/_version.py"
+tag_prefix = ""
+parentdir_prefix = "nidaq-"
+

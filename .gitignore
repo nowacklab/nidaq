@@ -1,5 +1,6 @@
 __pycache__
+*.egg-info
 dep
 *.swp
 *~
-src/testdata.bin
+*.bin
