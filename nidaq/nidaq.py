@@ -7,6 +7,7 @@ from typing import Optional, Tuple
 from dataclasses import dataclass
 import io
 import asyncio
+from os import PathLike
 from pathlib import Path
 import numpy as np
 import numpy.typing as npt
@@ -17,47 +18,50 @@ import nidaqmx as ni
 from nidaqmx.system import System as NISystem
 from nidaqmx.stream_writers import AnalogSingleChannelWriter, AnalogUnscaledWriter
 from nidaqmx.stream_readers import AnalogSingleChannelReader, AnalogUnscaledReader
-from nidaqmx.constants import AcquisitionType, Edge, RegenerationMode, TerminalConfiguration, WAIT_INFINITELY
+from nidaqmx.constants import AcquisitionType, Edge, RegenerationMode, TerminalConfiguration, WAIT_INFINITELY, ResolutionType
 
 @dataclass
 class DAQOutputSignal:
     "Data necessary to describe a DAQ output waveform, independent of channel or range."
-    samples: npt.ArrayLike[np.int16]
+    samples: npt.NDArray[np.int16]
     regenerations: int
     frequency: float
 
 @dataclass
-class DAQOutput:
-    "Data necessary for a NI DAQ to produce an output waveform."
-    device: str
-    signal: DAQOutputSignal
-    channel: str
-    minVoltage: float
-    maxVoltage: float
-
-    def __post_init__(self):
-        # TODO: validate output frequency, sizes, voltages.
-        pass
+class DAQOutputCalibration:
+    "Data necessary to determine output voltage from raw DAQ samples."
+    bits: int
+    coefficients: list[float]
+    referenceVoltage: float
 
 @dataclass
-class DAQInput:
-    "Data necessary to set up a NI DAQ input."
-    device: str
-    channel: str
+class DAQInputCalibration:
+    "Data necessary to determine output voltage from raw DAQ samples."
+    bits: int
+    coefficients: list[float]
     minVoltage: float
     maxVoltage: float
 
-    def __post_init__(self):
-        # TODO: validate voltages 
-        pass
+@dataclass
+class DAQOutputTask:
+    "Data necessary to describe a DAQ output waveform, independent of channel or range."
+    task: ni.Task
+    calibration: DAQOutputCalibration
+    signal: DAQOutputSignal
+
+@dataclass
+class DAQInputTask:
+    "Data necessary to describe a DAQ output waveform, independent of channel or range."
+    task: ni.Task
+    calibration: DAQOutputCalibration
 
 @dataclass
 class DAQSingleIO:
-    in: DAQInput
-    out: DAQOutput
+    input: DAQInputTask
+    output: DAQOutputTask
 
     def __post_init__(self):
-        if self.in.device != self.out.device:
+        if self.input.task.devices != self.output.task.devices:
             raise ValueError("""
 Synchronized IO across different DAQ devices is possible, but not implemented.
 Make sure that the input and output NI DAQ devices are the same.
@@ -162,21 +166,15 @@ async def untilTrue(box: list[bool]):
 
 async def daqSingleIO(
         dio: DAQSingleIO,
-        dataFile = dataFile,
+        dataFile: io.BufferedIOBase,
         ) -> bool:
 
-    device = dio.in.device
-    samplingFrequency = dio.out.signal.frequency
-    outData = dio.out.signal.samples
-    outputChannel = dio.out.channel
-    inputChannel = dio.in.channel
-    outputRegenerations = dio.out.regenerations
-    minOutputVoltage = dio.out.minVoltage
-    maxOutputVoltage = dio.out.maxVoltage
-    minInputVoltage = dio.in.minVoltage
-    maxInputVoltage = dio.in.maxVoltage
-
+    device = dio.input.task.devices[0].name
+    samplingFrequency = dio.output.signal.frequency
+    outputRegenerations = dio.output.signal.regenerations
+    outData = dio.output.signal.samples
     outDataLength = outData.size
+
     # Reading data in the every n samples callback takes a little under 65 ms on average,
     # but up to 100 ms for the first run.
     # For the callback to have enough time to run, we need n such that n > tcallback / Tsample
@@ -204,21 +202,18 @@ async def daqSingleIO(
     coChannel = "ctr0"
     coInternalOutput = "Ctr0InternalOutput"
 
-    coTask = ni.Task("co")
+    coTask = ni.Task()
     coTask.co_channels.add_co_pulse_chan_freq(f"{device}/{coChannel}", "", freq = samplingFrequency, duty_cycle = 0.5)
     coTask.timing.cfg_implicit_timing(sample_mode = AcquisitionType.CONTINUOUS, samps_per_chan = 0)
 
-    aoTask = ni.Task("ao")
-    aoTask.ao_channels.add_ao_voltage_chan(f"{device}/{outputChannel}", "", minOutputVoltage, maxOutputVoltage)
+    aoTask = dio.output.task
     aoTask.timing.cfg_samp_clk_timing(samplingFrequency, source = coInternalOutput, active_edge = Edge.FALLING, sample_mode = AcquisitionType.FINITE, samps_per_chan = regeneratedOutDataLength)
     aoTask.triggers.start_trigger.cfg_dig_edge_start_trig(coInternalOutput, Edge.RISING)
-    aoTask.out_stream.regen_mode = RegenerationMode.ALLOW_REGENERATION
     aoWriter = AnalogUnscaledWriter(aoTask.out_stream, auto_start = False)
     aoWriter.verify_array_shape = False # set True while debugging
     aoWriter.write_int16(np.reshape(outData, (1, outDataLength)))
 
-    aiTask = ni.Task("ai")
-    aiTask.ai_channels.add_ai_voltage_chan(f"{device}/{inputChannel}", "", TerminalConfiguration.DEFAULT, minInputVoltage, maxInputVoltage)
+    aiTask = dio.input.task
     aiTask.timing.cfg_samp_clk_timing(samplingFrequency, source = coInternalOutput, active_edge = Edge.RISING, sample_mode = AcquisitionType.FINITE, samps_per_chan = regeneratedOutDataLength)
     aiTask.triggers.start_trigger.cfg_dig_edge_start_trig(aoStartTrigger, Edge.RISING)
     aiTask.in_stream.input_buf_size = inputBufferSize
@@ -248,59 +243,144 @@ async def daqSingleIO(
 class BinaryFileError(Exception):
     pass
 
-def openBinaryFileWithoutTruncating(filepath: str | Path) -> io.BufferedIOBase:
-    filePath = Path(filepath)
-    exists = filepath.exists()
-    is_file = filepath.is_file()
+def openBinaryFileWithoutTruncating(filePath: PathLike) -> io.BufferedIOBase:
+    filePath = Path(filePath)
+    exists = filePath.exists()
+    is_file = filePath.is_file()
     if exists ^ is_file:
-        raise BinaryFileError(f"{filepath} is already used by a non-file")
-    return open(filepath, ('r' if is_file else 'x') + "b+")
+        raise BinaryFileError(f"{filePath} is already used by a non-file")
+    return open(filePath, ('r' if is_file else 'x') + "b+")
 
-def triangleSamplesFromZero(peak: int, step: int, bits: int) -> npt.NDArray[np.int16]:
-    x = peak // step
+def daqInputTask(
+        device: str,
+        channel: str,
+        minVoltage: float,
+        maxVoltage: float,
+        ) -> DAQInputTask:
+    aiTask = ni.Task()
+    aiTask.ai_channels.add_ai_voltage_chan(f"{device}/{channel}", "", TerminalConfiguration.DEFAULT, minVoltage, maxVoltage)
+
+    actualMinVoltage = aiTask.ai_channels[0].ai_rng_low
+    actualMaxVoltage = aiTask.ai_channels[0].ai_rng_high
+    coefficients = aiTask.ai_channels[0].ai_dev_scaling_coeff
+
+    resolutionUnit = aiTask.ai_channels[0].ai_resolution_units
+    if resolutionUnit != ResolutionType.BITS:
+        raise DAQInputError(f"I expect the resolution to be in bits, not {resolutionUnit}.")
+    bits = int(aiTask.ai_channels[0].ai_resolution)
+
+    return DAQInputTask(
+            task = aiTask,
+            calibration = DAQInputCalibration(
+                bits = bits,
+                coefficients = coefficients,
+                minVoltage = actualMinVoltage,
+                maxVoltage = actualMaxVoltage,
+                ),
+            )
+
+class DAQOutputError(Exception):
+    pass
+
+def triangleSamplesFromZero(amplitude: int, step: int, bits: int) -> npt.NDArray[np.int16]:
+    x = amplitude // step
     samples = np.zeros((2 * x,), dtype = np.int16)
     for i in range(x // 2):
         samples[i] = i*step
     for i in range(1, x + 1):
-        samples[i + (x // 2) - 1] = peak // 2 - i*step
+        samples[i + (x // 2) - 1] = amplitude // 2 - i*step
     for i in range(x // 2):
-        samples[i + 3 * x // 2] = -peak // 2 + i*step
+        samples[i + 3 * x // 2] = -amplitude // 2 + i*step
     return samples
 
+def daqTriangleOutputFromZero(
+        device: str,
+        channel: str,
+        amplitudeVolts: float,
+        stepVolts: float,
+        regenerations: int,
+        maxFrequency: float,
+        maxSampleFrequency: float = 2e6,
+        outputRanges: list[float] = [5.0, 10.0],
+        ) -> DAQOutputTask:
+
+    aoTask = ni.Task()
+    aoTask.ao_channels.add_ao_voltage_chan(f"{device}/{channel}", "", -amplitudeVolts, amplitudeVolts)
+    aoTask.out_stream.regen_mode = RegenerationMode.ALLOW_REGENERATION
+
+    referenceVoltage = aoTask.ao_channels[0].ao_dac_ref_val
+    coefficients = aoTask.ao_channels[0].ao_dev_scaling_coeff
+
+    resolutionUnit = aoTask.ao_channels[0].ao_resolution_units
+    if resolutionUnit != ResolutionType.BITS:
+        raise DAQOutputError(f"I expect the resolution to be in bits, not {resolutionUnit}.")
+    bits = int(aoTask.ao_channels[0].ao_resolution)
+
+    sampleStep = int(coefficients[1] * stepVolts)
+    if sampleStep == 0:
+        raise DAQOutputError(f"Step of {stepVolts} V is too small. Minimum possible step is {referenceVoltage / coefficients[1]} V.")
+
+    sampleDesiredAmplitude = coefficients[1] * amplitudeVolts / referenceVoltage
+    sampleAmplitude = int(sampleStep * math.floor(sampleDesiredAmplitude / sampleStep))
+    
+    samples = triangleSamplesFromZero(
+        amplitude = sampleAmplitude,
+        step = sampleStep,
+        bits = bits,
+        )
+
+    frequency = min(maxSampleFrequency, maxFrequency * samples.size)
+
+    print(f"Step: {sampleStep} LSB")
+    print(f"Frequency: {frequency / samples.size} Hz")
+
+    return DAQOutputTask(
+            task = aoTask,
+            calibration = DAQOutputCalibration(
+                bits = bits,
+                coefficients = coefficients,
+                referenceVoltage = referenceVoltage,
+                ),
+            signal = DAQOutputSignal(
+                samples = samples,
+                regenerations = regenerations,
+                frequency = frequency,
+                ),
+            )
+
+def daqIVTriangleFromZero(
+        totalResistanceOhms: float,
+        amplitudeAmps: float,
+        stepAmps: float,
+        **kwargs
+        ) -> DAQOutputTask:
+    return daqTriangleOutputFromZero(
+            amplitudeVolts = amplitudeAmps * totalResistanceOhms,
+            stepVolts = stepAmps * totalResistanceOhms,
+            **kwargs)
 
 def nidaq():
     niSystem = NISystem.local()
     print(f"NI driver version: {niDriverVersion(niSystem)}")
 
     device = niDevice(niSystem)
-    bits = 16 # TODO: get output bits from device
-
-    dio = DAQSingleIO(
-            DAQInput(
-                device = device,
-                channel = "ai4",
-                minVoltage = -0.2,
-                maxVoltage = 0.2,
-                ),
-            DAQOutput(
-                device = device,
-                signal = DAQOutputSignal(
-                    samples = triangleSamplesFromZero(
-                        peak = 2**bits,
-                        step = 128, # Got an device memory underflow for step = 256
-                        bits = bits,
-                        ),
-                    regenerations = 1,
-                    frequency = 2e6,
-                    ),
-                channel = "ao3",
-                minVoltage = -5.0,
-                maxVoltage = 5.0,
-                ),
+    input = daqInputTask(
+        device = device,
+        channel = "ai4",
+        minVoltage = -0.2,
+        maxVoltage = 0.2,
+        )
+    output = daqIVTriangleFromZero(
+            totalResistanceOhms = 15e3,
+            amplitudeAmps = 200e-6,
+            stepAmps = 100e-9,
+            device = device,
+            channel = "ao3",
+            regenerations = 1023,
+            maxFrequency = 1e3,
             )
+    dio = DAQSingleIO(input, output)
 
     with openBinaryFileWithoutTruncating("testdata.bin") as dataFile:
-        asyncio.run(
-                daqSingleIO(dio = dio, dataFile = dataFile)
-                )
+        asyncio.run(daqSingleIO(dio = dio, dataFile = dataFile))
 
