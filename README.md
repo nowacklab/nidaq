@@ -2,5 +2,5 @@
 
 See:
 
-- `src` for the hardware-limited sweep code.
+- `nidaq` for the hardware-limited sweep code.
 - `examples` for different ways to interact with the NI DAQ.

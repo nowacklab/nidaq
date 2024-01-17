@@ -52,8 +52,8 @@ def get_config() -> VersioneerConfig:
     cfg.VCS = "git"
     cfg.style = "pep440"
     cfg.tag_prefix = ""
-    cfg.parentdir_prefix = "abs299test-"
-    cfg.versionfile_source = "src/abs299test/_version.py"
+    cfg.parentdir_prefix = "nidaq-"
+    cfg.versionfile_source = "nidaq/_version.py"
     cfg.verbose = False
     return cfg
 
