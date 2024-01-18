@@ -35,6 +35,8 @@ class DAQOutputCalibration:
     bits: int
     coefficients: list[float]
     referenceVoltage: float
+    minVoltage: float
+    maxVoltage: float
 
 @dataclass
 class DAQInputCalibration:
@@ -303,7 +305,6 @@ def daqTriangleOutputFromZero(
         regenerations: int,
         maxFrequency: float,
         maxSampleFrequency: float = 2e6,
-        outputRanges: list[float] = [5.0, 10.0],
         ) -> DAQOutputTask:
 
     aoTask = ni.Task()
@@ -311,18 +312,22 @@ def daqTriangleOutputFromZero(
     aoTask.out_stream.regen_mode = RegenerationMode.ALLOW_REGENERATION
 
     referenceVoltage = aoTask.ao_channels[0].ao_dac_ref_val
+    minVoltage = aoTask.ao_channels[0].ao_dac_rng_low
+    maxVoltage = aoTask.ao_channels[0].ao_dac_rng_high
+    fullRange = maxVoltage - minVoltage
     coefficients = aoTask.ao_channels[0].ao_dev_scaling_coeff
+    c = [fullRange * x for x in coefficients]
 
     resolutionUnit = aoTask.ao_channels[0].ao_resolution_units
     if resolutionUnit != ResolutionType.BITS:
         raise DAQOutputError(f"I expect the resolution to be in bits, not {resolutionUnit}.")
     bits = int(aoTask.ao_channels[0].ao_resolution)
 
-    sampleStep = int(coefficients[1] * stepVolts)
+    sampleStep = int(c[1] * stepVolts)
     if sampleStep == 0:
-        raise DAQOutputError(f"Step of {stepVolts} V is too small. Minimum possible step is {referenceVoltage / coefficients[1]} V.")
+        raise DAQOutputError(f"Step of {stepVolts} V is too small. Minimum possible step is {referenceVoltage / c[1]} V.")
 
-    sampleDesiredAmplitude = coefficients[1] * amplitudeVolts / referenceVoltage
+    sampleDesiredAmplitude = c[1] * amplitudeVolts / referenceVoltage
     sampleAmplitude = int(sampleStep * math.floor(sampleDesiredAmplitude / sampleStep))
     
     samples = triangleSamplesFromZero(
@@ -342,6 +347,8 @@ def daqTriangleOutputFromZero(
                 bits = bits,
                 coefficients = coefficients,
                 referenceVoltage = referenceVoltage,
+                minVoltage = minVoltage,
+                maxVoltage = maxVoltage,
                 ),
             signal = DAQOutputSignal(
                 samples = samples,
@@ -370,8 +377,8 @@ def nidaq():
     inputTaskSpec = {
             "device": device,
             "channel": "ai4",
-            "minVoltage": -0.2,
-            "maxVoltage": 0.2,
+            "minVoltage": -2.0,
+            "maxVoltage": 2.0,
             }
     outputTaskSpec = {
             "device": device,
@@ -379,10 +386,10 @@ def nidaq():
             }
     daqIVTriangleFromZeroParameters = {
             "totalResistanceOhms": 15e3,
-            "amplitudeAmps": 200e-6,
-            "stepAmps": 100e-9,
+            "amplitudeAmps": 100e-6,
+            "stepAmps": 1.5e-9,
             "regenerations": 16,
-            "maxFrequency": 5e3,
+            "maxFrequency": 1e3,
             }
 
     input = daqInputTask(**inputTaskSpec)
@@ -391,6 +398,7 @@ def nidaq():
     dio = DAQSingleIO(input, output)
 
     # Assumes that the working directory is where we want to put data.
+    outputParameters = Path("parameters.json")
     dataFilePath = Path("input-samples.bin")
     samplesFile = Path("output-samples.npy")
 
@@ -409,7 +417,8 @@ def nidaq():
             "output": outputDict,
             }
 
-    print(json.dumps(dioDict, indent = 2))
+    with open(outputParameters, "w") as f:
+        json.dump(dioDict, f, indent = 2)
     np.save(samplesFile, output.signal.samples)
 
     with openBinaryFileWithoutTruncating(dataFilePath) as dataFile:
