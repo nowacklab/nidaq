@@ -3,8 +3,10 @@ Example of doing high-throughput memory-mapped data acquisition with a NI DAQ.
 TODO: Verify stability and that data is output and saved correctly.
 """
 
-from typing import Optional, Tuple
+from typing import Optional
+import dataclasses
 from dataclasses import dataclass
+import json
 import io
 import asyncio
 from os import PathLike
@@ -361,26 +363,55 @@ def daqIVTriangleFromZero(
 
 def nidaq():
     niSystem = NISystem.local()
+    niVersion = niDriverVersion(niSystem)
+    device = niDevice(niSystem)
     print(f"NI driver version: {niDriverVersion(niSystem)}")
 
-    device = niDevice(niSystem)
-    input = daqInputTask(
-        device = device,
-        channel = "ai4",
-        minVoltage = -0.2,
-        maxVoltage = 0.2,
-        )
-    output = daqIVTriangleFromZero(
-            totalResistanceOhms = 15e3,
-            amplitudeAmps = 200e-6,
-            stepAmps = 100e-9,
-            device = device,
-            channel = "ao3",
-            regenerations = 1023,
-            maxFrequency = 1e3,
-            )
+    inputTaskSpec = {
+            "device": device,
+            "channel": "ai4",
+            "minVoltage": -0.2,
+            "maxVoltage": 0.2,
+            }
+    outputTaskSpec = {
+            "device": device,
+            "channel": "ao3",
+            }
+    daqIVTriangleFromZeroParameters = {
+            "totalResistanceOhms": 15e3,
+            "amplitudeAmps": 200e-6,
+            "stepAmps": 100e-9,
+            "regenerations": 16,
+            "maxFrequency": 5e3,
+            }
+
+    input = daqInputTask(**inputTaskSpec)
+    output = daqIVTriangleFromZero(**daqIVTriangleFromZeroParameters, **outputTaskSpec)
+
     dio = DAQSingleIO(input, output)
 
-    with openBinaryFileWithoutTruncating("testdata.bin") as dataFile:
+    # Assumes that the working directory is where we want to put data.
+    dataFilePath = Path("input-samples.bin")
+    samplesFile = Path("output-samples.npy")
+
+    inputDict = {
+            "calibration": dataclasses.asdict(input.calibration),
+            }
+    signalDict = dataclasses.asdict(output.signal)
+    del signalDict["samples"]
+    signalDict["samplesFile"] = samplesFile.as_posix()
+    outputDict = {
+            "calibration": dataclasses.asdict(output.calibration),
+            "signal": signalDict,
+            }
+    dioDict = {
+            "input": inputDict,
+            "output": outputDict,
+            }
+
+    print(json.dumps(dioDict, indent = 2))
+    np.save(samplesFile, output.signal.samples)
+
+    with openBinaryFileWithoutTruncating(dataFilePath) as dataFile:
         asyncio.run(daqSingleIO(dio = dio, dataFile = dataFile))
 
