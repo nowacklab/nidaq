@@ -7,21 +7,76 @@ from typing import Optional
 import dataclasses
 from dataclasses import dataclass
 import json
+import inspect
+import logging
 import io
 import asyncio
+import os
 from os import PathLike
 from pathlib import Path
 import numpy as np
 import numpy.typing as npt
 import mmap
 import time
+from datetime import datetime
 import math
 import nidaqmx as ni
 from nidaqmx.system import System as NISystem
+from nidaqmx.system.device import Device as NIDevice
 from nidaqmx.stream_writers import AnalogSingleChannelWriter, AnalogUnscaledWriter
 from nidaqmx.stream_readers import AnalogSingleChannelReader, AnalogUnscaledReader
 from nidaqmx.constants import AcquisitionType, Edge, RegenerationMode, TerminalConfiguration, WAIT_INFINITELY, ResolutionType
 
+def timePathComponent(dt: datetime) -> str:
+    return dt.astimezone().isoformat().replace(":", "").replace(".", "d")
+
+class RecordError(Exception):
+    pass
+
+class RecordableDefinitionError(Exception):
+    pass
+
+def recordable(cls):
+    if hasattr(cls, 'recordAttribute'):
+        if callable(cls.recordAttribute):
+            return cls
+        else:
+            raise RecordableDefinitionError(f"""
+A recordable class must have a recordAttribute method, but the recordAttribute of {cls} is not callable.
+""")
+
+    def recordAttribute(self, name: str, state):
+        return getattr(self, name)
+
+    setattr(cls, 'recordAttribute', recordAttribute)
+    return cls
+
+class RecordJSONEncoder(json.JSONEncoder):
+    def __init__(self, state, **kwargs):
+        super(RecordJSONEncoder, self).__init__(**kwargs)
+        self.state = state
+
+    def default(self, x):
+        if hasattr(x, "record") and callable(x.record):
+            return x.record(self.state)
+        elif hasattr(x, "recordAttribute") and callable(x.recordAttribute):
+            r = {}
+            for k in vars(x):
+                v = x.recordAttribute(k, self.state)
+                if isinstance(v, RecordError):
+                    raise v
+                if v is not None:
+                    r[k] = v
+            return r
+       #elif hasattr(x, "__dict__"):
+       #    r = {}
+       #    for k, v in vars(x).items():
+       #        # is self.default necessary?
+       #        r[k] = self.default(v)
+       #    return r
+        return super().default(x)
+
+@recordable
 @dataclass
 class DAQOutputSignal:
     "Data necessary to describe a DAQ output waveform, independent of channel or range."
@@ -29,6 +84,18 @@ class DAQOutputSignal:
     regenerations: int
     frequency: float
 
+    def recordAttribute(self, name: str, state):
+        if name == "samples":
+            path, reference = state["newPath"]("output-samples", "npy")
+            try:
+                np.save(path, getattr(self, name), allow_pickle = False)
+                return { "path": reference }
+            except Exception as e:
+                return RecordError(e)
+        else:
+            return getattr(self, name)
+
+@recordable
 @dataclass
 class DAQOutputCalibration:
     "Data necessary to determine output voltage from raw DAQ samples."
@@ -38,6 +105,7 @@ class DAQOutputCalibration:
     minVoltage: float
     maxVoltage: float
 
+@recordable
 @dataclass
 class DAQInputCalibration:
     "Data necessary to determine output voltage from raw DAQ samples."
@@ -46,6 +114,7 @@ class DAQInputCalibration:
     minVoltage: float
     maxVoltage: float
 
+@recordable
 @dataclass
 class DAQOutputTask:
     "Data necessary to describe a DAQ output waveform, independent of channel or range."
@@ -53,12 +122,26 @@ class DAQOutputTask:
     calibration: DAQOutputCalibration
     signal: DAQOutputSignal
 
+    def recordAttribute(self, name: str, state):
+        if name == "task":
+            return None
+        else:
+            return getattr(self, name)
+
+@recordable
 @dataclass
 class DAQInputTask:
     "Data necessary to describe a DAQ output waveform, independent of channel or range."
     task: ni.Task
     calibration: DAQOutputCalibration
 
+    def recordAttribute(self, name: str, state):
+        if name == "task":
+            return None
+        else:
+            return getattr(self, name)
+
+@recordable
 @dataclass
 class DAQSingleIO:
     input: DAQInputTask
@@ -71,7 +154,6 @@ Synchronized IO across different DAQ devices is possible, but not implemented.
 Make sure that the input and output NI DAQ devices are the same.
             """.strip())
 
-
 class NIDeviceError(Exception):
     pass
 
@@ -81,12 +163,12 @@ def niDriverVersion(system: Optional[NISystem] = None) -> str:
     v = system.driver_version
     return f"{v.major_version}.{v.minor_version}.{v.update_version}"
 
-def niDevices(system: Optional[NISystem] = None) -> str:
+def niDevices(system: Optional[NISystem] = None) -> list[NIDevice]:
     if system is None:
         system = NISystem.local()
-    return system.devices.device_names
+    return system.devices
 
-def niDevice(system: Optional[NISystem] = None) -> str:
+def niDevice(system: Optional[NISystem] = None) -> NIDevice:
     devices = niDevices(system)
     numDevices = len(devices)
     if numDevices == 0:
@@ -94,6 +176,9 @@ def niDevice(system: Optional[NISystem] = None) -> str:
     elif numDevices > 1:
         raise NIDeviceError("More than one NI device is detected (choose one)")
     return devices[0]
+
+def hexSerialNumber(device: NIDevice) -> str:
+    return hex(device.serial_num)[2:].upper()
 
 # TODO: How can we handle speed errors for the callback?
 #       Rate issues are thrown as errors from the reading function.
@@ -122,7 +207,7 @@ def writeSamplesCallback(
     dataMmapOffset = initFileLength % mmap.ALLOCATIONGRANULARITY
 
     dataFile.truncate(initFileLength + fullDataLength) # Extend by full data length
-    
+
     mm = mmap.mmap(dataFile.fileno(), length = dataMmapOffset + fullDataLength, access = mmap.ACCESS_WRITE, offset = initPageOffset)
 
     outdir = Path.cwd()
@@ -130,8 +215,6 @@ def writeSamplesCallback(
 
     # Why does this decrease the read time from ~65 ms to ~16 ms? Is that all really from numpy?
     aiReader.verify_array_shape = False # set True while debugging
-
-    print("_" * callbacksToRun + "|")
 
     def callback(taskHandle, everyNSamplesEventType, callbackSamples, callbackData):
         ta = time.perf_counter()
@@ -144,14 +227,13 @@ def writeSamplesCallback(
         data = np.ndarray((1, callbackSamples), dtype = np.int16, buffer = mm, order = 'C', offset = dataMmapOffset + dataCallbackOffset)
         aiReader.read_int16(data, callbackSamples)
 
-        print("*", end = '', flush = True)
+        print(f"DAQ callback {n} / {callbacksToRun}", end = '\r', flush = True)
 
         if n >= callbacksToRun:
             doneBox[0] = True
             del data
             mm.flush()
             mm.close()
-            print("|")
         else:
             n += 1
 
@@ -169,14 +251,14 @@ async def untilTrue(box: list[bool]):
         continue
 
 async def daqSingleIO(
-        dio: DAQSingleIO,
+        daqio: DAQSingleIO,
         dataFile: io.BufferedIOBase,
         ) -> bool:
 
-    device = dio.input.task.devices[0].name
-    samplingFrequency = dio.output.signal.frequency
-    outputRegenerations = dio.output.signal.regenerations
-    outData = dio.output.signal.samples
+    device = daqio.input.task.devices[0].name
+    samplingFrequency = daqio.output.signal.frequency
+    outputRegenerations = daqio.output.signal.regenerations
+    outData = daqio.output.signal.samples
     outDataLength = outData.size
 
     # Reading data in the every n samples callback takes a little under 65 ms on average,
@@ -194,9 +276,9 @@ async def daqSingleIO(
     inputBufferMargin = 4 # Sets the size of the input buffer in units of callback data to prevent circular overwriting.
     inputBufferSize = callbackSamples * inputBufferMargin
 
-    print(f"outDataLength: {outDataLength}")
-    print(f"callbackRegenerations: {callbackRegenerations}")
-    print(f"callbackSamples: {callbackSamples}")
+    logging.info(f"outDataLength: {outDataLength}")
+    logging.info(f"callbackRegenerations: {callbackRegenerations}")
+    logging.info(f"callbackSamples: {callbackSamples}")
 
     # We know that we are using an X Series device, so we do not need the generic logic for getting the fully qualified name of the trigger, which may differ depending on the device.
     aoStartTrigger = f"/{device}/ao/StartTrigger"
@@ -210,14 +292,14 @@ async def daqSingleIO(
     coTask.co_channels.add_co_pulse_chan_freq(f"{device}/{coChannel}", "", freq = samplingFrequency, duty_cycle = 0.5)
     coTask.timing.cfg_implicit_timing(sample_mode = AcquisitionType.CONTINUOUS, samps_per_chan = 0)
 
-    aoTask = dio.output.task
+    aoTask = daqio.output.task
     aoTask.timing.cfg_samp_clk_timing(samplingFrequency, source = coInternalOutput, active_edge = Edge.FALLING, sample_mode = AcquisitionType.FINITE, samps_per_chan = regeneratedOutDataLength)
     aoTask.triggers.start_trigger.cfg_dig_edge_start_trig(coInternalOutput, Edge.RISING)
     aoWriter = AnalogUnscaledWriter(aoTask.out_stream, auto_start = False)
     aoWriter.verify_array_shape = False # set True while debugging
     aoWriter.write_int16(np.reshape(outData, (1, outDataLength)))
 
-    aiTask = dio.input.task
+    aiTask = daqio.input.task
     aiTask.timing.cfg_samp_clk_timing(samplingFrequency, source = coInternalOutput, active_edge = Edge.RISING, sample_mode = AcquisitionType.FINITE, samps_per_chan = regeneratedOutDataLength)
     aiTask.triggers.start_trigger.cfg_dig_edge_start_trig(aoStartTrigger, Edge.RISING)
     aiTask.in_stream.input_buf_size = inputBufferSize
@@ -253,7 +335,7 @@ def openBinaryFileWithoutTruncating(filePath: PathLike) -> io.BufferedIOBase:
     is_file = filePath.is_file()
     if exists ^ is_file:
         raise BinaryFileError(f"{filePath} is already used by a non-file")
-    return open(filePath, ('r' if is_file else 'x') + "b+")
+    return open(filePath.resolve(), ('r' if is_file else 'x') + "b+")
 
 def daqInputTask(
         device: str,
@@ -297,7 +379,7 @@ def triangleSamplesFromZero(amplitude: int, step: int, bits: int) -> npt.NDArray
         samples[i + 3 * x // 2] = -amplitude // 2 + i*step
     return samples
 
-def daqTriangleOutputFromZero(
+def daqTriangleVoltageFromZero(
         device: str,
         channel: str,
         amplitudeVolts: float,
@@ -329,7 +411,7 @@ def daqTriangleOutputFromZero(
 
     sampleDesiredAmplitude = c[1] * amplitudeVolts / referenceVoltage
     sampleAmplitude = int(sampleStep * math.floor(sampleDesiredAmplitude / sampleStep))
-    
+
     samples = triangleSamplesFromZero(
         amplitude = sampleAmplitude,
         step = sampleStep,
@@ -338,8 +420,8 @@ def daqTriangleOutputFromZero(
 
     frequency = min(maxSampleFrequency, maxFrequency * samples.size)
 
-    print(f"Step: {sampleStep} LSB")
-    print(f"Frequency: {frequency / samples.size} Hz")
+    logging.info(f"Step: {sampleStep} LSB")
+    logging.info(f"Frequency: {frequency / samples.size} Hz")
 
     return DAQOutputTask(
             task = aoTask,
@@ -357,70 +439,92 @@ def daqTriangleOutputFromZero(
                 ),
             )
 
-def daqIVTriangleFromZero(
+def daqTriangleCurrentFromZero(
         totalResistanceOhms: float,
         amplitudeAmps: float,
         stepAmps: float,
         **kwargs
         ) -> DAQOutputTask:
-    return daqTriangleOutputFromZero(
+    return daqTriangleVoltageFromZero(
             amplitudeVolts = amplitudeAmps * totalResistanceOhms,
             stepVolts = stepAmps * totalResistanceOhms,
             **kwargs)
 
+def newPath(rootDirectory: PathLike, relativeTo: PathLike):
+    rootDirectory = Path(rootDirectory)
+    relativeTo = Path(relativeTo)
+    nameUses = {}
+    def f(name: str, suffix: str, subDirectory: PathLike = Path(".")) -> Path:
+        nonlocal rootDirectory, relativeTo, nameUses
+        uniquePart = ""
+        if name in nameUses:
+            nameUses[name] += 1
+            uniquePart = f"-{nameUses[name]}"
+        else:
+            nameUses[name] = 1
+        path = rootDirectory / subDirectory / Path(f"{name}{uniquePart}.{suffix}")
+        reference = Path(os.path.relpath(path, relativeTo)).as_posix()
+        return path, reference
+    return f
+
 def nidaq():
+    logging.basicConfig(level = logging.INFO)
+
+    rootDirectory = Path("daqiv-" + timePathComponent(datetime.now()))
+    dataRootDirectory = rootDirectory
+    daqioDataPath = dataRootDirectory / Path("input-samples.bin")
+    parametersPath = rootDirectory / Path("parameters.json")
+    parametersRootDirectory = parametersPath.parent # / Path("parameter-data")
+
     niSystem = NISystem.local()
-    niVersion = niDriverVersion(niSystem)
     device = niDevice(niSystem)
-    print(f"NI driver version: {niDriverVersion(niSystem)}")
+    deviceName = device.name
 
-    inputTaskSpec = {
-            "device": device,
-            "channel": "ai4",
-            "minVoltage": -2.0,
-            "maxVoltage": 2.0,
-            }
-    outputTaskSpec = {
-            "device": device,
-            "channel": "ao3",
-            }
-    daqIVTriangleFromZeroParameters = {
-            "totalResistanceOhms": 15e3,
-            "amplitudeAmps": 100e-6,
-            "stepAmps": 1.5e-9,
-            "regenerations": 16,
-            "maxFrequency": 1e3,
-            }
-
-    input = daqInputTask(**inputTaskSpec)
-    output = daqIVTriangleFromZero(**daqIVTriangleFromZeroParameters, **outputTaskSpec)
-
-    dio = DAQSingleIO(input, output)
-
-    # Assumes that the working directory is where we want to put data.
-    outputParameters = Path("parameters.json")
-    dataFilePath = Path("input-samples.bin")
-    samplesFile = Path("output-samples.npy")
-
-    inputDict = {
-            "calibration": dataclasses.asdict(input.calibration),
-            }
-    signalDict = dataclasses.asdict(output.signal)
-    del signalDict["samples"]
-    signalDict["samplesFile"] = samplesFile.as_posix()
-    outputDict = {
-            "calibration": dataclasses.asdict(output.calibration),
-            "signal": signalDict,
-            }
-    dioDict = {
-            "input": inputDict,
-            "output": outputDict,
+    p = { # Parameters
+            "comment": inspect.cleandoc(f"""
+            This is a test comment.
+            """),
+            "daqiv": {
+                "daqTriangleCurrentFromZero": {
+                    "device": deviceName,
+                    "channel": "ao3",
+                    "totalResistanceOhms": 15e3,
+                    "amplitudeAmps": 100e-6,
+                    "stepAmps": 1.5e-9,
+                    "regenerations": 256,
+                    "maxFrequency": 1e3,
+                    },
+                "input": {
+                    "device": deviceName,
+                    "channel": "ai4",
+                    "minVoltage": -2.0,
+                    "maxVoltage": 2.0,
+                    },
+                "daqioDataPath": Path(os.path.relpath(daqioDataPath, parametersPath.parent)).as_posix(),
+                "daqVersionInformation": {
+                    "NIDAQmxVersion": niDriverVersion(niSystem),
+                    "deviceSerialNumber": hexSerialNumber(device),
+                    },
+                },
             }
 
-    with open(outputParameters, "w") as f:
-        json.dump(dioDict, f, indent = 2)
-    np.save(samplesFile, output.signal.samples)
+    try:
+        output = daqTriangleCurrentFromZero(**p["daqiv"]["daqTriangleCurrentFromZero"])
+        input = daqInputTask(**p["daqiv"]["input"])
+        daqio = DAQSingleIO(input, output)
 
-    with openBinaryFileWithoutTruncating(dataFilePath) as dataFile:
-        asyncio.run(daqSingleIO(dio = dio, dataFile = dataFile))
+        p["daqiv"]["daqio"] = daqio
+
+        dataRootDirectory.mkdir(parents = True, exist_ok = True)
+        parametersRootDirectory.mkdir(parents = True, exist_ok = True)
+        with open(parametersPath.resolve(), "x") as f:
+            json.dump(p, f, indent = 2, cls = RecordJSONEncoder, state = {
+                "newPath": newPath(rootDirectory = parametersRootDirectory, relativeTo = parametersPath.parent),
+                })
+        with open(daqioDataPath.resolve(), "xb+") as dataFile:
+            asyncio.run(daqSingleIO(daqio, dataFile = dataFile))
+    except Exception as e:
+        output.task.close()
+        input.task.close()
+        raise e
 
