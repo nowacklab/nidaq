@@ -22,6 +22,7 @@ Vy = inp.(y)
 
 ## TODO
 
+- Clean up directories after a dry run
 - Documentation
 - Extract common functionality to enable creation of new scripts
 - Session setup (set parameters like commit author?)
