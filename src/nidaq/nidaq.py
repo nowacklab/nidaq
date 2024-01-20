@@ -74,12 +74,6 @@ class RecordJSONEncoder(json.JSONEncoder):
                 if v is not None:
                     r[k] = v
             return r
-       #elif hasattr(x, "__dict__"):
-       #    r = {}
-       #    for k, v in vars(x).items():
-       #        # is self.default necessary?
-       #        r[k] = self.default(v)
-       #    return r
         return super().default(x)
 
 @recordable
@@ -328,12 +322,9 @@ async def daqSingleIO(
     await untilTrue(aiCallbackDone)
 
     aiTask.stop()
-    aiTask.close()
-
     aoTask.stop()
-    aoTask.close()
-
     coTask.stop()
+
     coTask.close()
 
     return daqioHardwareParameters
@@ -486,6 +477,8 @@ def nidaq():
             prog = program,
             description = "Measure an IV curve with a NI DAQ",
             )
+    argumentParser.add_argument("-m", "--message", dest = "message",
+            default = "first execution for new tree")
     argumentSubparsers = argumentParser.add_subparsers(dest = "command")
 
     editSubparser = argumentSubparsers.add_parser("edit")
@@ -536,7 +529,7 @@ def nidaq():
     deviceName = device.name
 
     execution = code_tracking.fileExecutionData(__file__, sys.argv,
-            startTime = startTime,
+            message = f"{program}: {arguments.message}",
             dirtyOK = arguments.command == "dry",
             )
 

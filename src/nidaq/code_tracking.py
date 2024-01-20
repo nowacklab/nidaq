@@ -26,7 +26,7 @@ def runGitCommand(repo: git.Repo, argv: list[str]):
     with contextlib.chdir(repo.working_tree_dir):
         return subprocess.run(["git", *argv])
 
-def workingTreeState(repo: git.Repo, startTime: datetime, no_untracked = True, dirtyOK = False, autocommit = True) -> tuple[Optional[str] | CodeTrackingError, str, bool]:
+def workingTreeState(repo: git.Repo, message: str, no_untracked = True, dirtyOK = False, autocommit = True) -> tuple[Optional[str] | CodeTrackingError, str, bool]:
     with contextlib.chdir(repo.working_tree_dir):
         description = repo.git.describe("--long", "--dirty")
         if not repo.is_dirty(untracked_files = no_untracked):
@@ -45,9 +45,7 @@ def workingTreeState(repo: git.Repo, startTime: datetime, no_untracked = True, d
             return (CodeTrackingError("Working tree is dirty and autocommit is disabled."), description, True)
 
         try:
-            timestamp = startTime.astimezone().isoformat()
             author = "Alex Striff <abs299@cornell.edu>" # TODO: Conveniently configure this for different users? Look for session config?
-            message = f"{timestamp} : first execution for new tree"
             runGitCommand(repo, ["add", "--all"])
             runGitCommand(repo, ["commit", "--author", author, "-m", message])
             return (repo.head.commit.hexsha, description, True)
@@ -57,6 +55,7 @@ def workingTreeState(repo: git.Repo, startTime: datetime, no_untracked = True, d
 def fileExecutionData(
         filePath: PathLike,
         argv: list[str],
+        message: str,
         startTime: datetime = None,
         dirtyOK: bool = False,
         ) -> dict | CodeTrackingError:
@@ -70,7 +69,7 @@ def fileExecutionData(
 
     commitResult, description, wasDirty = workingTreeState(
             repo,
-            startTime = startTime,
+            message = message,
             dirtyOK = dirtyOK,
             )
     if isinstance(commitResult, CodeTrackingError):
