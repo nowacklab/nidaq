@@ -542,9 +542,8 @@ def nidaq():
 
     p = { # Parameters
             "execution": execution,
-            "comment": inspect.cleandoc(f"""
-            This is a test comment.
-            """),
+           #"comment": inspect.cleandoc(f"""
+           #"""),
             "daqiv": {
                 "daqTriangleCurrentFromZero": {
                     "device": deviceName,
