@@ -477,8 +477,7 @@ def nidaq():
             prog = program,
             description = "Measure an IV curve with a NI DAQ",
             )
-    argumentParser.add_argument("-m", "--message", dest = "message",
-            default = "first execution for new tree")
+    argumentParser.add_argument("-m", "--message", dest = "message", default = None)
     argumentSubparsers = argumentParser.add_subparsers(dest = "command")
 
     editSubparser = argumentSubparsers.add_parser("edit")
@@ -529,7 +528,7 @@ def nidaq():
     deviceName = device.name
 
     execution = code_tracking.fileExecutionData(__file__, sys.argv,
-            message = f"{program}: {arguments.message}",
+            message = f"{program}: {arguments.message}" if arguments.message is not None else f"{program} [first execution for new tree]",
             dirtyOK = arguments.command == "dry",
             )
 
