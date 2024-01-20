@@ -50,6 +50,7 @@ def workingTreeState(repo: git.Repo, startTime: datetime, no_untracked = True, d
             message = f"{timestamp} : first execution for new tree"
             runGitCommand(repo, ["add", "--all"])
             runGitCommand(repo, ["commit", "--author", author, "-m", message])
+            return (repo.head.commit.hexsha, description, True)
         except:
             return (CodeTrackingError(f"There was an error while autocommiting repo at {Path(repo.working_tree_dir).resolve()}"), description, True)
 
