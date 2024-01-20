@@ -12,6 +12,8 @@ classifiers = [
   "Operating System :: OS Independent",
 ]
 dependencies = [
+  "gitpython",
+  "pyyaml",
   "numpy",
   "nidaqmx",
 ]

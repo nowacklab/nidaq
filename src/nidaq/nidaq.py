@@ -11,6 +11,7 @@ import inspect
 import logging
 import io
 import asyncio
+import sys
 import os
 from os import PathLike
 from pathlib import Path
@@ -26,6 +27,11 @@ from nidaqmx.system.device import Device as NIDevice
 from nidaqmx.stream_writers import AnalogSingleChannelWriter, AnalogUnscaledWriter
 from nidaqmx.stream_readers import AnalogSingleChannelReader, AnalogUnscaledReader
 from nidaqmx.constants import AcquisitionType, Edge, RegenerationMode, TerminalConfiguration, WAIT_INFINITELY, ResolutionType
+
+import argparse
+import webbrowser # for opening source files, despite the name
+import subprocess
+from . import code_tracking
 
 def timePathComponent(dt: datetime) -> str:
     return dt.astimezone().isoformat().replace(":", "").replace(".", "d")
@@ -82,7 +88,9 @@ class DAQOutputSignal:
     "Data necessary to describe a DAQ output waveform, independent of channel or range."
     samples: npt.NDArray[np.int16]
     regenerations: int
+    sampleRate: float
     frequency: float
+    stepLSB: int
 
     def recordAttribute(self, name: str, state):
         if name == "samples":
@@ -253,10 +261,10 @@ async def untilTrue(box: list[bool]):
 async def daqSingleIO(
         daqio: DAQSingleIO,
         dataFile: io.BufferedIOBase,
-        ) -> bool:
+        ) -> dict:
 
     device = daqio.input.task.devices[0].name
-    samplingFrequency = daqio.output.signal.frequency
+    samplingFrequency = daqio.output.signal.sampleRate
     outputRegenerations = daqio.output.signal.regenerations
     outData = daqio.output.signal.samples
     outDataLength = outData.size
@@ -276,9 +284,14 @@ async def daqSingleIO(
     inputBufferMargin = 4 # Sets the size of the input buffer in units of callback data to prevent circular overwriting.
     inputBufferSize = callbackSamples * inputBufferMargin
 
-    logging.info(f"outDataLength: {outDataLength}")
-    logging.info(f"callbackRegenerations: {callbackRegenerations}")
-    logging.info(f"callbackSamples: {callbackSamples}")
+    # TODO: include margin and callbackDuration parameters
+    daqioHardwareParameters = {
+            "outDataLength": outDataLength,
+            "callbackRegenerations": callbackRegenerations,
+            "callbackSamples": callbackSamples,
+            }
+
+    logging.info(json.dumps(daqioHardwareParameters, indent = 2))
 
     # We know that we are using an X Series device, so we do not need the generic logic for getting the fully qualified name of the trigger, which may differ depending on the device.
     aoStartTrigger = f"/{device}/ao/StartTrigger"
@@ -323,7 +336,7 @@ async def daqSingleIO(
     coTask.stop()
     coTask.close()
 
-    return True
+    return daqioHardwareParameters
 
 
 class BinaryFileError(Exception):
@@ -386,7 +399,7 @@ def daqTriangleVoltageFromZero(
         stepVolts: float,
         regenerations: int,
         maxFrequency: float,
-        maxSampleFrequency: float = 2e6,
+        maxSampleRate: float = 2e6,
         ) -> DAQOutputTask:
 
     aoTask = ni.Task()
@@ -418,10 +431,8 @@ def daqTriangleVoltageFromZero(
         bits = bits,
         )
 
-    frequency = min(maxSampleFrequency, maxFrequency * samples.size)
-
-    logging.info(f"Step: {sampleStep} LSB")
-    logging.info(f"Frequency: {frequency / samples.size} Hz")
+    sampleRate = min(maxSampleRate, maxFrequency * samples.size)
+    frequency = sampleRate / samples.size
 
     return DAQOutputTask(
             task = aoTask,
@@ -435,7 +446,9 @@ def daqTriangleVoltageFromZero(
             signal = DAQOutputSignal(
                 samples = samples,
                 regenerations = regenerations,
+                sampleRate = sampleRate,
                 frequency = frequency,
+                stepLSB = sampleStep,
                 ),
             )
 
@@ -468,9 +481,51 @@ def newPath(rootDirectory: PathLike, relativeTo: PathLike):
     return f
 
 def nidaq():
-    logging.basicConfig(level = logging.INFO)
+    program = Path(sys.argv[0]).name
+    argumentParser = argparse.ArgumentParser(
+            prog = program,
+            description = "Measure an IV curve with a NI DAQ",
+            )
+    argumentSubparsers = argumentParser.add_subparsers(dest = "command")
 
-    rootDirectory = Path("daqiv-" + timePathComponent(datetime.now()))
+    editSubparser = argumentSubparsers.add_parser("edit")
+    editSubparser.add_argument("editor_command", nargs = argparse.REMAINDER, help = "Editor command to run on source file, like \"notepad\" or \"vim -y\"")
+
+    dirSubparser = argumentSubparsers.add_parser("dir")
+    dirSubparser.add_argument("dir", nargs = "*", help = "Print the directory where the script is located")
+
+    gitSubparser = argumentSubparsers.add_parser("git")
+    gitSubparser.add_argument("git_command", nargs = argparse.REMAINDER, help = f"Run a git command in the repo for the script")
+
+    drySubparser = argumentSubparsers.add_parser("dry")
+    drySubparser.add_argument("dry", nargs = "*", help = "Do a dry run: execute until ready to measure, but show configuration instead")
+
+    arguments = argumentParser.parse_args()
+
+    if arguments.command == "edit":
+        sourcePath = Path(__file__).resolve()
+        print(f"Editing source at {sourcePath}")
+        if len(arguments.editor_command) == 0:
+            # TODO: make more portable if necessary
+            # See https://docs.python.org/3/library/webbrowser.html#webbrowser.open
+            webbrowser.open(sourcePath)
+            return 0
+        else:
+            return subprocess.run([*arguments.editor_command, sourcePath]).returncode
+
+    if arguments.command == "dir":
+        sourceDir = Path(__file__).parent.resolve()
+        print(sourceDir) # Leave this in native format
+        return 0
+
+    if arguments.command == "git":
+        completedProcess = code_tracking.runGitCommand(code_tracking.getRepo(__file__), arguments.git_command)
+        return completedProcess.returncode
+
+    logging.basicConfig(level = logging.INFO)
+    startTime = datetime.now()
+
+    rootDirectory = Path("daqiv-" + timePathComponent(startTime))
     dataRootDirectory = rootDirectory
     daqioDataPath = dataRootDirectory / Path("input-samples.bin")
     parametersPath = rootDirectory / Path("parameters.json")
@@ -480,7 +535,13 @@ def nidaq():
     device = niDevice(niSystem)
     deviceName = device.name
 
+    execution = code_tracking.fileExecutionData(__file__, sys.argv,
+            startTime = startTime,
+            dirtyOK = arguments.command == "dry",
+            )
+
     p = { # Parameters
+            "execution": execution,
             "comment": inspect.cleandoc(f"""
             This is a test comment.
             """),
@@ -517,14 +578,20 @@ def nidaq():
 
         dataRootDirectory.mkdir(parents = True, exist_ok = True)
         parametersRootDirectory.mkdir(parents = True, exist_ok = True)
-        with open(parametersPath.resolve(), "x") as f:
-            json.dump(p, f, indent = 2, cls = RecordJSONEncoder, state = {
-                "newPath": newPath(rootDirectory = parametersRootDirectory, relativeTo = parametersPath.parent),
-                })
-        with open(daqioDataPath.resolve(), "xb+") as dataFile:
-            asyncio.run(daqSingleIO(daqio, dataFile = dataFile))
-    except Exception as e:
+        parametersJSON = json.dumps(p, indent = 2, cls = RecordJSONEncoder, state = {
+            "newPath": newPath(rootDirectory = parametersRootDirectory, relativeTo = parametersPath.parent),
+            })
+
+        if arguments.command == "dry":
+            import yaml
+            print(yaml.dump(yaml.safe_load(parametersJSON)))
+        else:
+            with open(parametersPath.resolve(), "x") as f:
+                f.write(parametersJSON)
+            with open(daqioDataPath.resolve(), "xb+") as dataFile:
+                daqioHardwareParameters = asyncio.run(daqSingleIO(daqio, dataFile = dataFile))
+
+    finally:
         output.task.close()
         input.task.close()
-        raise e
 
