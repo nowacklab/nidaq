@@ -535,7 +535,7 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
            "comment": inspect.cleandoc(f"""
-           Test run on Cernox with no filters
+           Loop only through preamp to check if preamp adds delay
            """),
             "preamp": {
                 "gain": 1000,
