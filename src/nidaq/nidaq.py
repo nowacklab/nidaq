@@ -540,17 +540,17 @@ def nidaq():
                 "daqTriangleCurrentFromZero": {
                     "device": deviceName,
                     "channel": "ao3",
-                    "totalResistanceOhms": 15e3,
-                    "amplitudeAmps": 100e-6,
+                    "totalResistanceOhms": 2.085e3 + 14.27e3,
+                    "amplitudeAmps": 200e-6,
                     "stepAmps": 1.5e-9,
                     "regenerations": 256,
                     "maxFrequency": 1e3,
                     },
                 "input": {
                     "device": deviceName,
-                    "channel": "ai4",
-                    "minVoltage": -2.0,
-                    "maxVoltage": 2.0,
+                    "channel": "ai20",
+                    "minVoltage": -10.0,
+                    "maxVoltage": 10.0,
                     },
                 "daqioDataPath": Path(os.path.relpath(daqioDataPath, parametersPath.parent)).as_posix(),
                 "daqVersionInformation": {
