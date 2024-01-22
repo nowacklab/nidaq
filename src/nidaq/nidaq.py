@@ -556,7 +556,7 @@ def nidaq():
                     "amplitudeAmps": 200e-6,
                     "stepAmps": 100e-9,
                     "regenerations": 16,
-                    "maxFrequency": 100,
+                    "maxFrequency": 30,
                     },
                 "input": {
                     "device": deviceName,
@@ -589,6 +589,7 @@ def nidaq():
             import yaml
             print(yaml.dump(yaml.safe_load(parametersJSON)))
         else:
+            print(dataRootDirectory)
             with open(parametersPath.resolve(), "x") as f:
                 f.write(parametersJSON)
             with open(daqioDataPath.resolve(), "xb+") as dataFile:
