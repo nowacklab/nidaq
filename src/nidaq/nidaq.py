@@ -535,7 +535,7 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
            "comment": inspect.cleandoc(f"""
-           Loop only through preamp to check if preamp adds delay
+           Loop from DAQ output with bias resistors to DAQ input to check delay
            """),
             "preamp": {
                 "gain": 1000,
