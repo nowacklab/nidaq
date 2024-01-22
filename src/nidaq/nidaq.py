@@ -534,8 +534,9 @@ def nidaq():
 
     p = { # Parameters
             "execution": execution,
-           #"comment": inspect.cleandoc(f"""
-           #"""),
+           "comment": inspect.cleandoc(f"""
+           Test run on Cernox with no filters
+           """),
             "daqiv": {
                 "daqTriangleCurrentFromZero": {
                     "device": deviceName,
