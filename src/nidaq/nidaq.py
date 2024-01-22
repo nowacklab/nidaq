@@ -537,14 +537,25 @@ def nidaq():
            "comment": inspect.cleandoc(f"""
            Test run on Cernox with no filters
            """),
+            "preamp": {
+                "gain": 1000,
+                "filter": {
+                    "mode": "none",
+                    },
+                "instrument": {
+                    "name": "Signal Recovery 5113",
+                    "serial": "17214017",
+                    "rev": "1B",
+                    },
+                },
             "daqiv": {
                 "daqTriangleCurrentFromZero": {
                     "device": deviceName,
                     "channel": "ao3",
                     "totalResistanceOhms": 2.085e3 + 14.27e3,
                     "amplitudeAmps": 200e-6,
-                    "stepAmps": 1.5e-9,
-                    "regenerations": 256,
+                    "stepAmps": 100e-9,
+                    "regenerations": 16,
                     "maxFrequency": 1e3,
                     },
                 "input": {
