@@ -536,6 +536,7 @@ def nidaq():
             "execution": execution,
             "comment": inspect.cleandoc(f"""
             4-point with bias resistors on Cernox to check system
+            daqOutput filter flipped
             """),
             "filterCutoffs": {
                 "daqOutput": 5e3,
