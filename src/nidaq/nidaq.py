@@ -547,7 +547,7 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
             "comment": inspect.cleandoc(f"""
-            4-point with bias resistors on bare Nb to check system
+            4-point with bias resistors on cold, bare Nb to check system
             (and prevous few)
             """),
             "filterCutoffs": {
