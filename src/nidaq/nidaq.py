@@ -557,7 +557,7 @@ def nidaq():
                     "totalResistanceOhms": 2.085e3 + 14.27e3,
                     "amplitudeAmps": 200e-6,
                     "stepAmps": 15e-9,
-                    "regenerations": 1,
+                    "regenerations": 4,
                     "maxFrequency": 1e3,
                     },
                 "input": {
