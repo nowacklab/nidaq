@@ -549,7 +549,6 @@ def nidaq():
             "comment": inspect.cleandoc(f"""
             4-point with bias resistors on bare Nb to check system
             (and prevous few)
-            All thermometer connections shorted
             """),
             "filterCutoffs": {
                 "daqOutput": 100e3,
