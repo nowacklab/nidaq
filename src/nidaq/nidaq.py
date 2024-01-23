@@ -43,7 +43,7 @@ def cernoxResistanceOhms(hf2li):
     hf2liVx, hf2liVy = hf2liV["x"][0], hf2liV["y"][0] # Vrms
     hf2liI = demods[hf2li.demods[1].sample]
     hf2liIx, hf2liIy = hf2liI["x"][0], hf2liI["y"][0] # Vrms
-    return math.sqrt((hf2liVx**2 + hf2liVy**2) / (hf2liIx**2 + hf2liIy**2)) / hf2taTransimpedanceVA
+    return math.sqrt((hf2liVx**2 + hf2liVy**2) / (hf2liIx**2 + hf2liIy**2)) * hf2taTransimpedanceVA
 
 def timePathComponent(dt: datetime) -> str:
     return dt.astimezone().isoformat().replace(":", "").replace(".", "d")
