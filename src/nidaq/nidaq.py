@@ -535,7 +535,7 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
            "comment": inspect.cleandoc(f"""
-           Loop with on DAQ output to DAQ input to check delay
+           Loop DAQ output to unity gain preamp to DAQ input to check preamp delay
            """),
             "preamp": {
                 "gain": 1,
