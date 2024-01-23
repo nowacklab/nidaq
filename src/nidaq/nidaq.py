@@ -560,9 +560,9 @@ def nidaq():
                     "device": deviceName,
                     "channel": "ao3",
                     "totalResistanceOhms": 2.085e3 + 14.27e3,
-                    "amplitudeAmps": 200e-6,
-                    "stepAmps": 1.0e-9,
-                    "regenerations": 4,
+                    "amplitudeAmps": 100e-6,
+                    "stepAmps": 3.0e-9,
+                    "regenerations": 1,
                     "maxFrequency": 25,
                     },
                 "input": {
