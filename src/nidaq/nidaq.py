@@ -539,9 +539,15 @@ def nidaq():
             """),
             "filterCutoffs": {
                 "daqOutput": 100e3,
-                "preampA": 1e6,
-                "preampB": 1e6,
+                "preampA": 100e3,
+                "preampB": 100e3,
                 "daqInput": 1e6,
+                "magnet": 100e3,
+                "heater": 1e6,
+                "cernoxISource": 100e3,
+                "cernoxISink": 1e6,
+                "cernoxVA": 1e6,
+                "cernoxVB": 1e6,
                 },
             "preamp": {
                 "gain": 1000,
@@ -559,7 +565,7 @@ def nidaq():
                 "daqTriangleCurrentFromZero": {
                     "device": deviceName,
                     "channel": "ao3",
-                    "totalResistanceOhms": 2.085e3 + 14.27e3,
+                    "totalResistanceOhms": 14.27e3 + 2.053e3 + 30.0,
                     "amplitudeAmps": 100e-6,
                     "stepAmps": 3.0e-9,
                     "regenerations": 8,
