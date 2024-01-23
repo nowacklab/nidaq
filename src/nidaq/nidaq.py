@@ -538,7 +538,7 @@ def nidaq():
            Loop with on DAQ output to DAQ input to check delay
            """),
             "preamp": {
-                "gain": 1000,
+                "gain": 1,
                 "filter": {
                     "mode": "none",
                     },
