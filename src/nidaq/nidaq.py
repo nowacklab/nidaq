@@ -547,9 +547,11 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
             "comment": inspect.cleandoc(f"""
-            4-point with bias resistors on cold, bare Nb to check system
-            (and prevous few)
             """),
+            "device": {
+                "id": "ns29t20x2a1d16",
+                "comment": "60 nm NS A, same as in MURI review data"
+                },
             "filterCutoffs": {
                 "daqOutput": 100e3,
                 "preampA": 100e3,
