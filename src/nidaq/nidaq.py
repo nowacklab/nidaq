@@ -536,17 +536,18 @@ def nidaq():
             "execution": execution,
             "comment": inspect.cleandoc(f"""
             4-point with bias resistors on Cernox to check system
-            daqOutput filter flipped
             """),
             "filterCutoffs": {
-                "daqOutput": 5e3,
+                "daqOutput": 100e3,
                 "preampA": 1e6,
                 "preampB": 1e6,
+                "daqInput": 1e6,
                 },
             "preamp": {
                 "gain": 1000,
                 "filter": {
-                    "mode": "flat",
+                    "mode": "12 dB/oct low-pass",
+                    "frequencyHz": 100e3,
                     },
                 "instrument": {
                     "name": "Signal Recovery 5113",
@@ -560,9 +561,9 @@ def nidaq():
                     "channel": "ao3",
                     "totalResistanceOhms": 2.085e3 + 14.27e3,
                     "amplitudeAmps": 200e-6,
-                    "stepAmps": 15e-9,
+                    "stepAmps": 1.5e-9,
                     "regenerations": 4,
-                    "maxFrequency": 1e3,
+                    "maxFrequency": 30,
                     },
                 "input": {
                     "device": deviceName,
