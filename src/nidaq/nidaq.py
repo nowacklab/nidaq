@@ -540,7 +540,9 @@ def nidaq():
             "preamp": {
                 "gain": 1000,
                 "filter": {
-                    "mode": "none",
+                    "mode": "LPF",
+                    "falloff_dB_per_octave": "12",
+                    "frequencyHz": 30e3,
                     },
                 "instrument": {
                     "name": "Signal Recovery 5113",
