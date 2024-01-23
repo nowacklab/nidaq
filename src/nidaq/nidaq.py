@@ -534,15 +534,18 @@ def nidaq():
 
     p = { # Parameters
             "execution": execution,
-           "comment": inspect.cleandoc(f"""
-           4-point with bias resistors and 1 MHz series filters on Cernox without filters to check system
-           """),
+            "comment": inspect.cleandoc(f"""
+            4-point with bias resistors and 1 MHz series filters on Cernox without filters to check system
+            """),
+            "filterCutoffs": {
+                "daqOutput": 100e3,
+                "preampA": 1e6,
+                "preampB": 1e6,
+                },
             "preamp": {
                 "gain": 1000,
                 "filter": {
-                    "mode": "LPF",
-                    "falloff_dB_per_octave": "12",
-                    "frequencyHz": 30e3,
+                    "mode": "flat",
                     },
                 "instrument": {
                     "name": "Signal Recovery 5113",
