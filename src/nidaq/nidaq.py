@@ -621,10 +621,10 @@ def nidaq():
             print(yaml.dump(yaml.safe_load(parametersJSON)))
         else:
             print(dataRootDirectory)
-            p["thermometer"]["initialResistanceOhms"] = cernoxResistanceOhms()
+            p["thermometer"]["initialResistanceOhms"] = cernoxResistanceOhms(hf2li)
             with open(daqioDataPath.resolve(), "xb+") as dataFile:
                 daqioHardwareParameters = asyncio.run(daqSingleIO(daqio, dataFile = dataFile))
-            p["thermometer"]["finalResistanceOhms"] = cernoxResistanceOhms()
+            p["thermometer"]["finalResistanceOhms"] = cernoxResistanceOhms(hf2li)
             with open(parametersPath.resolve(), "x") as f:
                 parametersJSON = json.dumps(p, indent = 2, cls = RecordJSONEncoder, state = {
                     "newPath": newPath(rootDirectory = parametersRootDirectory, relativeTo = parametersPath.parent),
