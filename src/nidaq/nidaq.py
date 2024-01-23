@@ -21,6 +21,9 @@ import mmap
 import time
 from datetime import datetime
 import math
+
+from zhinst.toolkit import Session as ZISession
+
 import nidaqmx as ni
 from nidaqmx.system import System as NISystem
 from nidaqmx.system.device import Device as NIDevice
@@ -32,6 +35,15 @@ import argparse
 import webbrowser # for opening source files, despite the name
 import subprocess
 from . import code_tracking
+
+def cernoxResistanceOhms(hf2li):
+    hf2taTransimpedanceVA = hf2li.zctrls[0].tamp[0].currentgain()
+    demods = hf2li.demods["*"].sample()
+    hf2liV = demods[hf2li.demods[0].sample]
+    hf2liVx, hf2liVy = hf2liV["x"][0], hf2liV["y"][0] # Vrms
+    hf2liI = demods[hf2li.demods[1].sample]
+    hf2liIx, hf2liIy = hf2liI["x"][0], hf2liI["y"][0] # Vrms
+    return math.sqrt((hf2liVx**2 + hf2liVy**2) / (hf2liIx**2 + hf2liIy**2)) / hf2taTransimpedanceVA
 
 def timePathComponent(dt: datetime) -> str:
     return dt.astimezone().isoformat().replace(":", "").replace(".", "d")
@@ -562,6 +574,10 @@ def nidaq():
                     "rev": "1B",
                     },
                 },
+            "thermometer": {
+                "type": "Cernox",
+                "serial": "X160190",
+                },
             "daqiv": {
                 "daqTriangleCurrentFromZero": {
                     "device": deviceName,
@@ -587,27 +603,33 @@ def nidaq():
             }
 
     try:
+        zisession = ZISession("localhost", hf2 = True)
+        hf2li = zisession.connect_device("DEV131")
         output = daqTriangleCurrentFromZero(**p["daqiv"]["daqTriangleCurrentFromZero"])
         input = daqInputTask(**p["daqiv"]["input"])
         daqio = DAQSingleIO(input, output)
-
         p["daqiv"]["daqio"] = daqio
 
         dataRootDirectory.mkdir(parents = True, exist_ok = True)
         parametersRootDirectory.mkdir(parents = True, exist_ok = True)
-        parametersJSON = json.dumps(p, indent = 2, cls = RecordJSONEncoder, state = {
-            "newPath": newPath(rootDirectory = parametersRootDirectory, relativeTo = parametersPath.parent),
-            })
 
         if arguments.command == "dry":
             import yaml
+            parametersJSON = json.dumps(p, indent = 2, cls = RecordJSONEncoder, state = {
+                "newPath": newPath(rootDirectory = parametersRootDirectory, relativeTo = parametersPath.parent),
+                })
             print(yaml.dump(yaml.safe_load(parametersJSON)))
         else:
             print(dataRootDirectory)
-            with open(parametersPath.resolve(), "x") as f:
-                f.write(parametersJSON)
+            p["thermometer"]["initialResistanceOhms"] = cernoxResistanceOhms()
             with open(daqioDataPath.resolve(), "xb+") as dataFile:
                 daqioHardwareParameters = asyncio.run(daqSingleIO(daqio, dataFile = dataFile))
+            p["thermometer"]["finalResistanceOhms"] = cernoxResistanceOhms()
+            with open(parametersPath.resolve(), "x") as f:
+                parametersJSON = json.dumps(p, indent = 2, cls = RecordJSONEncoder, state = {
+                    "newPath": newPath(rootDirectory = parametersRootDirectory, relativeTo = parametersPath.parent),
+                    })
+                f.write(parametersJSON)
 
     finally:
         output.task.close()

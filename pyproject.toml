@@ -16,6 +16,7 @@ dependencies = [
   "pyyaml",
   "numpy",
   "nidaqmx",
+  "zhinst",
 ]
 dynamic = [
   "version",
