@@ -552,6 +552,8 @@ def nidaq():
                 "id": "ns29t20x2a1d16",
                 "comment": "60 nm NS A, same as in MURI review data"
                 },
+            "magnet": "open",
+            "heater": "open",
             "filterCutoffs": {
                 "daqOutput": 100e3,
                 "preampA": 100e3,
