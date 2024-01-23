@@ -538,7 +538,7 @@ def nidaq():
            4-point with bias resistors on Cernox without filters to check system
            """),
             "preamp": {
-                "gain": 1,
+                "gain": 1000,
                 "filter": {
                     "mode": "none",
                     },
