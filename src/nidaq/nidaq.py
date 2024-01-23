@@ -535,7 +535,7 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
            "comment": inspect.cleandoc(f"""
-           4-point with bias resistors on Cernox without filters to check system
+           4-point with bias resistors and 1 MHz series filters on Cernox without filters to check system
            """),
             "preamp": {
                 "gain": 1000,
@@ -555,7 +555,7 @@ def nidaq():
                     "totalResistanceOhms": 2.085e3 + 14.27e3,
                     "amplitudeAmps": 200e-6,
                     "stepAmps": 15e-9,
-                    "regenerations": 16,
+                    "regenerations": 1,
                     "maxFrequency": 30,
                     },
                 "input": {
