@@ -535,7 +535,7 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
            "comment": inspect.cleandoc(f"""
-           Loop DAQ output to unity gain preamp to DAQ input to check preamp delay
+           4-point with bias resistors on Cernox without filters to check system
            """),
             "preamp": {
                 "gain": 1,
@@ -554,7 +554,7 @@ def nidaq():
                     "channel": "ao3",
                     "totalResistanceOhms": 2.085e3 + 14.27e3,
                     "amplitudeAmps": 200e-6,
-                    "stepAmps": 150e-9,
+                    "stepAmps": 15e-9,
                     "regenerations": 16,
                     "maxFrequency": 30,
                     },
