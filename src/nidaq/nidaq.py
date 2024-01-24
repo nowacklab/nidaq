@@ -628,7 +628,10 @@ def nidaq():
             p["thermometer"]["initialResistanceOhms"] = cernoxResistanceOhms(hf2li)
             with open(daqioDataPath.resolve(), "xb+") as dataFile:
                 daqioHardwareParameters = asyncio.run(daqSingleIO(daqio, dataFile = dataFile))
-            p["thermometer"]["finalResistanceOhms"] = cernoxResistanceOhms(hf2li)
+            try:
+                p["thermometer"]["finalResistanceOhms"] = cernoxResistanceOhms(hf2li)
+            except Exception:
+                pass
             with open(parametersPath.resolve(), "x") as f:
                 parametersJSON = json.dumps(p, indent = 2, cls = RecordJSONEncoder, state = {
                     "newPath": newPath(rootDirectory = parametersRootDirectory, relativeTo = parametersPath.parent),
