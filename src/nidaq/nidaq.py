@@ -590,13 +590,13 @@ def nidaq():
                     "amplitudeAmps": 150e-6,
                     "stepAmps": 4e-9,
                     "regenerations": 256,
-                    "maxFrequency": 10.0,
+                    "maxFrequency": 1.0,
                     },
                 "input": {
                     "device": deviceName,
                     "channel": "ai20",
-                    "minVoltage": -10.0,
-                    "maxVoltage": 10.0,
+                    "minVoltage": -5.0,
+                    "maxVoltage": 5.0,
                     },
                 "daqioDataPath": Path(os.path.relpath(daqioDataPath, parametersPath.parent)).as_posix(),
                 "daqVersionInformation": {
