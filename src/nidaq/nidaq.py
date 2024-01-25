@@ -547,7 +547,6 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
             "comment": inspect.cleandoc(f"""
-            Magnet and heater grounded.
             """),
             "device": {
                 "id": "ns29t20x2a1d16",
