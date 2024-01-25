@@ -547,7 +547,7 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
             "comment": inspect.cleandoc(f"""
-            Removed I filter
+            Removed IV filters
             """),
             "device": {
                 "id": "ns29t20x2a1d16",
@@ -558,8 +558,8 @@ def nidaq():
             "cernoxISource": "open",
             "filterCutoffs": {
                 #"daqOutput": 100e3,
-                "preampA": 100e3,
-                "preampB": 100e3,
+                #"preampA": 100e3,
+                #"preampB": 100e3,
                 "daqInput": 1e6,
                 "magnet": 100e3,
                 "heater": 1e6,
@@ -591,8 +591,8 @@ def nidaq():
                     "totalResistanceOhms": 14.27e3 + 2.5e3,
                     "amplitudeAmps": 150e-6,
                     "stepAmps": 4e-9,
-                    "regenerations": 8 * 1024,
-                    "maxFrequency": 10,
+                    "regenerations": 10 * 1024,
+                    "maxFrequency": 0.2,
                     },
                 "input": {
                     "device": deviceName,
