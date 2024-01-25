@@ -547,7 +547,7 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
             "comment": inspect.cleandoc(f"""
-            Removed V filters
+            Removed I filter
             """),
             "device": {
                 "id": "ns29t20x2a1d16",
@@ -557,9 +557,9 @@ def nidaq():
             "heater": "open",
             "cernoxISource": "open",
             "filterCutoffs": {
-                "daqOutput": 100e3,
-                #"preampA": 100e3,
-                #"preampB": 100e3,
+                #"daqOutput": 100e3,
+                "preampA": 100e3,
+                "preampB": 100e3,
                 "daqInput": 1e6,
                 "magnet": 100e3,
                 "heater": 1e6,
