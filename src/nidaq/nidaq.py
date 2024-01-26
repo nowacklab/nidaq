@@ -556,7 +556,7 @@ def nidaq():
             "lights": "off",
             "magnet": "open",
             "heater": "open",
-            "cernoxISource": "open",
+            #"cernoxISource": "open",
             "filterCutoffs": {
                 "daqOutput": 100e3,
                 "preampA": 100e3,
