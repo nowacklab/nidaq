@@ -555,7 +555,11 @@ def nidaq():
                 },
             "lights": "on",
             "magnet": "open",
-            "heater": "open",
+            "heater": {
+                "voltage": 1.0,
+                "totalResistanceOhm": 1.077e3,
+                "coldResistanceOhm": 0.739e3,
+                },
             #"cernoxISource": "open",
             "filterCutoffs": {
                 "daqOutput": 100e3,
