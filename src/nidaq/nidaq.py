@@ -553,7 +553,7 @@ def nidaq():
                 "id": "ns29t20x2a1d16",
                 "comment": "60 nm NS A, same as in MURI review data"
                 },
-            "lights": "on",
+            "lights": "off",
             "magnet": "open",
             "heater": {
                 "voltage": 1.4142135623730951,
@@ -596,8 +596,8 @@ def nidaq():
                     "totalResistanceOhms": 14.27e3 + 2.5e3,
                     "amplitudeAmps": 150e-6,
                     "stepAmps": 4e-9,
-                    "regenerations": 8,
-                    "maxFrequency": 10.0,
+                    "regenerations": 12 * 1024,
+                    "maxFrequency": 0.2,
                     },
                 "input": {
                     "device": deviceName,
