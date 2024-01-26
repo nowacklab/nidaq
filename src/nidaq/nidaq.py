@@ -593,7 +593,7 @@ def nidaq():
                     "amplitudeAmps": 150e-6,
                     "stepAmps": 4e-9,
                     "regenerations": 16,
-                    "maxFrequency": 10.0,
+                    "maxFrequency": 0.2,
                     },
                 "input": {
                     "device": deviceName,
