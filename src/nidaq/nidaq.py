@@ -556,7 +556,7 @@ def nidaq():
             "lights": "on",
             "magnet": "open",
             "heater": {
-                "voltage": 1.0,
+                "voltage": 1.4142135623730951,
                 "totalResistanceOhm": 1.077e3,
                 "coldResistanceOhm": 0.739e3,
                 },
