@@ -547,7 +547,7 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
             "comment": inspect.cleandoc(f"""
-            Replaced IV filters
+            DAQ USB isolated and HF2LI USB unplugged
             """),
             "device": {
                 "id": "ns29t20x2a1d16",
@@ -556,7 +556,7 @@ def nidaq():
             "lights": "on",
             "magnet": "open",
             "heater": "open",
-            #"cernoxISource": "open",
+            "cernoxISource": "open",
             "filterCutoffs": {
                 "daqOutput": 100e3,
                 "preampA": 100e3,
@@ -610,8 +610,8 @@ def nidaq():
             }
 
     try:
-        zisession = ZISession("localhost", hf2 = True)
-        hf2li = zisession.connect_device("DEV131")
+        #zisession = ZISession("localhost", hf2 = True)
+        #hf2li = zisession.connect_device("DEV131")
         output = daqTriangleCurrentFromZero(**p["daqiv"]["daqTriangleCurrentFromZero"])
         input = daqInputTask(**p["daqiv"]["input"])
         daqio = DAQSingleIO(input, output)
@@ -628,13 +628,13 @@ def nidaq():
             print(yaml.dump(yaml.safe_load(parametersJSON)))
         else:
             print(dataRootDirectory)
-            p["thermometer"]["initialResistanceOhms"] = cernoxResistanceOhms(hf2li)
+            #p["thermometer"]["initialResistanceOhms"] = cernoxResistanceOhms(hf2li)
             with open(daqioDataPath.resolve(), "xb+") as dataFile:
                 daqioHardwareParameters = asyncio.run(daqSingleIO(daqio, dataFile = dataFile))
-            try:
-                p["thermometer"]["finalResistanceOhms"] = cernoxResistanceOhms(hf2li)
-            except Exception:
-                pass
+            #try:
+                #p["thermometer"]["finalResistanceOhms"] = cernoxResistanceOhms(hf2li)
+            #except Exception:
+                #pass
             with open(parametersPath.resolve(), "x") as f:
                 parametersJSON = json.dumps(p, indent = 2, cls = RecordJSONEncoder, state = {
                     "newPath": newPath(rootDirectory = parametersRootDirectory, relativeTo = parametersPath.parent),
