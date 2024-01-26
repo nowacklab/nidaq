@@ -553,7 +553,7 @@ def nidaq():
                 "id": "ns29t20x2a1d16",
                 "comment": "60 nm NS A, same as in MURI review data"
                 },
-            "lights": "off",
+            "lights": "on",
             "magnet": "open",
             "heater": "open",
             #"cernoxISource": "open",
