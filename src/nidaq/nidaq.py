@@ -657,7 +657,6 @@ def nidaq():
 
             with open(daqioDataPath.resolve(), "xb+") as dataFile:
                 dio = daqSingleIO(daqio, dataFile = dataFile)
-                magnetWriter.write_int16(np.reshape(outData, (1, outDataLength)))
                 for (i, magnetSample) in enumerate(magnetOutputTask.signal.samples):
                     print(f"({i} / {magnetSamples}): magnet sample {magnetSample}")
                     magnetOutputTask.task.start()
