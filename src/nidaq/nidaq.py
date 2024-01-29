@@ -656,14 +656,13 @@ def nidaq():
             p["thermometer"]["initialResistanceOhms"] = cernoxResistanceOhms(hf2li)
 
             with open(daqioDataPath.resolve(), "xb+") as dataFile:
-                dio = daqSingleIO(daqio, dataFile = dataFile)
                 for (i, magnetSample) in enumerate(magnetOutputTask.signal.samples):
                     print(f"({i} / {magnetSamples}): magnet sample {magnetSample}")
                     magnetOutputTask.task.start()
                     magnetWriter.write_int16(np.array([[magnetSample]]))
                     magnetOutputTask.task.stop()
 
-                    daqioHardwareParameters = asyncio.run(dio)
+                    daqioHardwareParameters = asyncio.run(daqSingleIO(daqio, dataFile = dataFile))
 
             # Sometimes the HF2LI data server dies on Orenstein,
             # so ignore a failed attempt to read the thermometer at the end,
