@@ -589,6 +589,18 @@ def nidaq():
                 "type": "Cernox",
                 "serial": "X160190",
                 },
+            "magnet": {
+                "daqTriangleCurrentFromZero": {
+                    "device": deviceName,
+                    "channel": "ao1",
+                    "totalResistanceOhms": 338.2,
+                    "amplitudeAmps": 4e-3,
+                    "stepAmps": 80e-6,
+                    "regenerations": 1,
+                    # TODO: Fix the interface so that a nonsense frequency is not necessary.
+                    "maxFrequency": 0.0,
+                    },
+                },
             "daqiv": {
                 "daqTriangleCurrentFromZero": {
                     "device": deviceName,
@@ -596,8 +608,8 @@ def nidaq():
                     "totalResistanceOhms": 14.27e3 + 2.5e3,
                     "amplitudeAmps": 150e-6,
                     "stepAmps": 4e-9,
-                    "regenerations": 10 * 1024,
-                    "maxFrequency": 10.0,
+                    "regenerations": 64,
+                    "maxFrequency": 0.2,
                     },
                 "input": {
                     "device": deviceName,
@@ -616,10 +628,14 @@ def nidaq():
     try:
         zisession = ZISession("localhost", hf2 = True)
         hf2li = zisession.connect_device("DEV131")
+
         output = daqTriangleCurrentFromZero(**p["daqiv"]["daqTriangleCurrentFromZero"])
         input = daqInputTask(**p["daqiv"]["input"])
         daqio = DAQSingleIO(input, output)
         p["daqiv"]["daqio"] = daqio
+
+        magnetOutputTask = daqTriangleCurrentFromZero(**p["magnet"]["daqTriangleCurrentFromZero"])
+        p["magnet"]["outputTask"] = magnetOutputTask
 
         dataRootDirectory.mkdir(parents = True, exist_ok = True)
         parametersRootDirectory.mkdir(parents = True, exist_ok = True)
@@ -632,9 +648,27 @@ def nidaq():
             print(yaml.dump(yaml.safe_load(parametersJSON)))
         else:
             print(dataRootDirectory)
+
+            magnetSamples = len(magnetOutputTask.signal.samples)
+            magnetWriter = AnalogUnscaledWriter(magnetOutputTask.task.out_stream, auto_start = False)
+            magnetWriter.verify_array_shape = False # set True while debugging
+
             p["thermometer"]["initialResistanceOhms"] = cernoxResistanceOhms(hf2li)
+
             with open(daqioDataPath.resolve(), "xb+") as dataFile:
-                daqioHardwareParameters = asyncio.run(daqSingleIO(daqio, dataFile = dataFile))
+                dio = daqSingleIO(daqio, dataFile = dataFile)
+                magnetWriter.write_int16(np.reshape(outData, (1, outDataLength)))
+                for (i, magnetSample) in enumerate(magnetOutputTask.signal.samples):
+                    print(f"({i} / {magnetSamples}): magnet sample {magnetSample}")
+                    magnetOutputTask.task.start()
+                    magnetWriter.write_int16(np.array([[magnetSample]]))
+                    magnetOutputTask.task.stop()
+
+                    daqioHardwareParameters = asyncio.run(dio)
+
+            # Sometimes the HF2LI data server dies on Orenstein,
+            # so ignore a failed attempt to read the thermometer at the end,
+            # rather than have an error and not write the parameters.
             try:
                 p["thermometer"]["finalResistanceOhms"] = cernoxResistanceOhms(hf2li)
             except Exception:
@@ -646,6 +680,7 @@ def nidaq():
                 f.write(parametersJSON)
 
     finally:
+        magnetOutputTask.task.close()
         output.task.close()
         input.task.close()
 
