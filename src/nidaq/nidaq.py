@@ -596,8 +596,8 @@ def nidaq():
                     "totalResistanceOhms": 14.27e3 + 2.5e3,
                     "amplitudeAmps": 150e-6,
                     "stepAmps": 4e-9,
-                    "regenerations": 12 * 1024,
-                    "maxFrequency": 0.2,
+                    "regenerations": 10 * 1024,
+                    "maxFrequency": 10.0,
                     },
                 "input": {
                     "device": deviceName,
