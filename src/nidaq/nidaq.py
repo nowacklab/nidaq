@@ -325,6 +325,7 @@ async def daqSingleIO(
 
     aiCallbackDone = [False]
     aiCallback = writeSamplesCallback(aiTask, dataFile = dataFile, callbacksToRun = callbacksToRun, doneBox = aiCallbackDone, callbackSamples = callbackSamples)
+    aiTask.register_every_n_samples_acquired_into_buffer_event(callbackSamples, None) # Unregister first for OK rerun
     aiTask.register_every_n_samples_acquired_into_buffer_event(callbackSamples, aiCallback)
 
     coTask.start()
@@ -608,7 +609,7 @@ def nidaq():
                     "totalResistanceOhms": 14.27e3 + 2.5e3,
                     "amplitudeAmps": 150e-6,
                     "stepAmps": 4e-9,
-                    "regenerations": 64,
+                    "regenerations": 1, # testing
                     "maxFrequency": 0.2,
                     },
                 "input": {
