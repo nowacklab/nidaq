@@ -548,20 +548,18 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
             "comment": inspect.cleandoc(f"""
-            DAQ USB isolated and HF2LI USB unplugged
+            Cold modulation
             """),
             "device": {
                 "id": "ns29t20x2a1d16",
                 "comment": "60 nm NS A, same as in MURI review data"
                 },
-            "lights": "off",
-            "magnet": "open",
+            "lights": "on",
             "heater": {
-                "voltage": 1.4142135623730951,
+                "voltage": 0.0,
                 "totalResistanceOhm": 1.077e3,
                 "coldResistanceOhm": 0.739e3,
                 },
-            #"cernoxISource": "open",
             "filterCutoffs": {
                 "daqOutput": 100e3,
                 "preampA": 100e3,
