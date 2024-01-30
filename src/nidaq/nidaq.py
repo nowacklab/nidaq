@@ -386,6 +386,8 @@ class DAQOutputError(Exception):
     pass
 
 def triangleSamplesFromZero(amplitude: int, step: int, bits: int) -> npt.NDArray[np.int16]:
+    logging.info(f"step: {step}")
+    logging.info(f"amplitude: {amplitude}")
     x = amplitude // step
     samples = np.zeros((2 * x,), dtype = np.int16)
     for i in range(x // 2):
@@ -410,12 +412,17 @@ def daqTriangleVoltageFromZero(
     aoTask.ao_channels.add_ao_voltage_chan(f"{device}/{channel}", "", -amplitudeVolts, amplitudeVolts)
     aoTask.out_stream.regen_mode = RegenerationMode.ALLOW_REGENERATION
 
+    logging.info(f"amplitudeVolts: {amplitudeVolts}")
+    logging.info(f"stepVolts: {stepVolts}")
+
     referenceVoltage = aoTask.ao_channels[0].ao_dac_ref_val
     minVoltage = aoTask.ao_channels[0].ao_dac_rng_low
     maxVoltage = aoTask.ao_channels[0].ao_dac_rng_high
     fullRange = maxVoltage - minVoltage
     coefficients = aoTask.ao_channels[0].ao_dev_scaling_coeff
     c = [fullRange * x for x in coefficients]
+
+    logging.info(f"c: {c}")
 
     resolutionUnit = aoTask.ao_channels[0].ao_resolution_units
     if resolutionUnit != ResolutionType.BITS:
@@ -426,8 +433,13 @@ def daqTriangleVoltageFromZero(
     if sampleStep == 0:
         raise DAQOutputError(f"Step of {stepVolts} V is too small. Minimum possible step is {referenceVoltage / c[1]} V.")
 
+
     sampleDesiredAmplitude = c[1] * amplitudeVolts / referenceVoltage
     sampleAmplitude = int(sampleStep * math.floor(sampleDesiredAmplitude / sampleStep))
+
+    logging.info(f"sampleStep: {sampleStep}")
+    logging.info(f"sampleDesiredAmplitude: {sampleDesiredAmplitude}")
+    logging.info(f"sampleAmplitude: {sampleAmplitude}")
 
     samples = triangleSamplesFromZero(
         amplitude = sampleAmplitude,
@@ -629,11 +641,13 @@ def nidaq():
         zisession = ZISession("localhost", hf2 = True)
         hf2li = zisession.connect_device("DEV131")
 
+        logging.info("== IV ==")
         output = daqTriangleCurrentFromZero(**p["daqiv"]["daqTriangleCurrentFromZero"])
         input = daqInputTask(**p["daqiv"]["input"])
         daqio = DAQSingleIO(input, output)
         p["daqiv"]["daqio"] = daqio
 
+        logging.info("== MAGNET ==")
         magnetOutputTask = daqTriangleCurrentFromZero(**p["magnet"]["daqTriangleCurrentFromZero"])
         p["magnet"]["outputTask"] = magnetOutputTask
 
