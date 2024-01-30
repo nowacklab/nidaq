@@ -422,7 +422,7 @@ def daqTriangleVoltageFromZero(
         raise DAQOutputError(f"I expect the resolution to be in bits, not {resolutionUnit}.")
     bits = int(aoTask.ao_channels[0].ao_resolution)
 
-    sampleStep = int(c[1] * stepVolts)
+    sampleStep = int(c[1] * stepVolts / referenceVoltage)
     if sampleStep == 0:
         raise DAQOutputError(f"Step of {stepVolts} V is too small. Minimum possible step is {referenceVoltage / c[1]} V.")
 
@@ -548,6 +548,7 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
             "comment": inspect.cleandoc(f"""
+            Test modified sample step calculation
             Cold modulation
             """),
             "device": {
@@ -606,9 +607,9 @@ def nidaq():
                     "channel": "ao3",
                     "totalResistanceOhms": 14.27e3 + 2.5e3,
                     "amplitudeAmps": 150e-6,
-                    "stepAmps": 4e-9,
-                    "regenerations": 64,
-                    "maxFrequency": 0.2,
+                    "stepAmps": 20e-9,
+                    "regenerations": 1,
+                    "maxFrequency": 10.0,
                     },
                 "input": {
                     "device": deviceName,
