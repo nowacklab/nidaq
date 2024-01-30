@@ -297,8 +297,6 @@ async def daqSingleIO(
             "callbackSamples": callbackSamples,
             }
 
-    logging.info(json.dumps(daqioHardwareParameters, indent = 2))
-
     # We know that we are using an X Series device, so we do not need the generic logic for getting the fully qualified name of the trigger, which may differ depending on the device.
     aoStartTrigger = f"/{device}/ao/StartTrigger"
 
@@ -342,18 +340,6 @@ async def daqSingleIO(
 
     return daqioHardwareParameters
 
-
-class BinaryFileError(Exception):
-    pass
-
-def openBinaryFileWithoutTruncating(filePath: PathLike) -> io.BufferedIOBase:
-    filePath = Path(filePath)
-    exists = filePath.exists()
-    is_file = filePath.is_file()
-    if exists ^ is_file:
-        raise BinaryFileError(f"{filePath} is already used by a non-file")
-    return open(filePath.resolve(), ('r' if is_file else 'x') + "b+")
-
 def daqInputTask(
         device: str,
         channel: str,
@@ -389,13 +375,13 @@ def triangleSamplesFromZero(amplitude: int, step: int, bits: int) -> npt.NDArray
     logging.info(f"step: {step}")
     logging.info(f"amplitude: {amplitude}")
     x = amplitude // step
-    samples = np.zeros((2 * x,), dtype = np.int16)
-    for i in range(x // 2):
+    samples = np.zeros((4 * x,), dtype = np.int16)
+    for i in range(x):
         samples[i] = i*step
-    for i in range(1, x + 1):
-        samples[i + (x // 2) - 1] = amplitude // 2 - i*step
-    for i in range(x // 2):
-        samples[i + 3 * x // 2] = -amplitude // 2 + i*step
+    for i in range(1, 2*x + 1):
+        samples[i + x - 1] = amplitude - i*step
+    for i in range(x):
+        samples[i + 3 * x] = -amplitude + i*step
     return samples
 
 def daqTriangleVoltageFromZero(
@@ -418,23 +404,21 @@ def daqTriangleVoltageFromZero(
     referenceVoltage = aoTask.ao_channels[0].ao_dac_ref_val
     minVoltage = aoTask.ao_channels[0].ao_dac_rng_low
     maxVoltage = aoTask.ao_channels[0].ao_dac_rng_high
-    fullRange = maxVoltage - minVoltage
     coefficients = aoTask.ao_channels[0].ao_dev_scaling_coeff
-    c = [fullRange * x for x in coefficients]
 
-    logging.info(f"c: {c}")
+    logging.info(f"coefficients: {coefficients}")
 
     resolutionUnit = aoTask.ao_channels[0].ao_resolution_units
     if resolutionUnit != ResolutionType.BITS:
         raise DAQOutputError(f"I expect the resolution to be in bits, not {resolutionUnit}.")
     bits = int(aoTask.ao_channels[0].ao_resolution)
 
-    sampleStep = int(c[1] * stepVolts / referenceVoltage)
+    sampleStep = int(coefficients[1] * stepVolts)
     if sampleStep == 0:
         raise DAQOutputError(f"Step of {stepVolts} V is too small. Minimum possible step is {referenceVoltage / c[1]} V.")
 
 
-    sampleDesiredAmplitude = c[1] * amplitudeVolts / referenceVoltage
+    sampleDesiredAmplitude = coefficients[1] * amplitudeVolts
     sampleAmplitude = int(sampleStep * math.floor(sampleDesiredAmplitude / sampleStep))
 
     logging.info(f"sampleStep: {sampleStep}")
@@ -619,7 +603,7 @@ def nidaq():
                     "channel": "ao3",
                     "totalResistanceOhms": 14.27e3 + 2.5e3,
                     "amplitudeAmps": 150e-6,
-                    "stepAmps": 20e-9,
+                    "stepAmps": 40e-9,
                     "regenerations": 1,
                     "maxFrequency": 10.0,
                     },
@@ -635,6 +619,12 @@ def nidaq():
                     "deviceSerialNumber": hexSerialNumber(device),
                     },
                 },
+            "version": {
+                    "number": 2,
+                    "comment": inspect.cleandoc(f"""
+                    Fixed double factor of two in sample calculations.
+                    """),
+                    },
             }
 
     try:
@@ -660,6 +650,9 @@ def nidaq():
                 "newPath": newPath(rootDirectory = parametersRootDirectory, relativeTo = parametersPath.parent),
                 })
             print(yaml.dump(yaml.safe_load(parametersJSON)))
+
+            with open(parametersPath.resolve(), "x") as f:
+                f.write(parametersJSON)
         else:
             print(dataRootDirectory)
 
@@ -685,6 +678,7 @@ def nidaq():
                 p["thermometer"]["finalResistanceOhms"] = cernoxResistanceOhms(hf2li)
             except Exception:
                 pass
+
             with open(parametersPath.resolve(), "x") as f:
                 parametersJSON = json.dumps(p, indent = 2, cls = RecordJSONEncoder, state = {
                     "newPath": newPath(rootDirectory = parametersRootDirectory, relativeTo = parametersPath.parent),
