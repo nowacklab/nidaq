@@ -544,8 +544,7 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
             "comment": inspect.cleandoc(f"""
-            Test modified sample step calculation
-            Cold modulation
+            Warm modulation
             """),
             "device": {
                 "id": "ns29t20x2a1d16",
