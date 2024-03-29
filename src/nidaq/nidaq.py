@@ -572,7 +572,7 @@ def nidaq():
                 "gain": 1000,
                 "filter": {
                     "mode": "12 dB/oct low-pass",
-                    "frequencyHz": 10e3,
+                    "frequencyHz": 30e3,
                     },
                 "instrument": {
                     "name": "Signal Recovery 5113",
@@ -601,10 +601,10 @@ def nidaq():
                     "device": deviceName,
                     "channel": "ao0",
                     "totalResistanceOhms": 14.27e3 + 2.5e3,
-                    "amplitudeAmps": 50e-6,
+                    "amplitudeAmps": 150e-6,
                     "stepAmps": 40e-9,
                     "regenerations": 1,
-                    "maxFrequency": 0.05,
+                    "maxFrequency": 1.0,
                     },
                 "input": {
                     "device": deviceName,
