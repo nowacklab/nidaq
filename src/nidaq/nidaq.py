@@ -1,6 +1,5 @@
 """
 Example of doing high-throughput memory-mapped data acquisition with a NI DAQ.
-TODO: Verify stability and that data is output and saved correctly.
 """
 
 from typing import Optional
@@ -37,7 +36,7 @@ import subprocess
 from . import code_tracking
 
 def cernoxResistanceOhms(hf2li):
-    hf2taTransimpedanceVA = hf2li.zctrls[0].tamp[0].currentgain()
+    hf2taTransimpedanceVA = hf2li.zctrls[0].tamp[1].currentgain()
     demods = hf2li.demods["*"].sample()
     hf2liV = demods[hf2li.demods[0].sample]
     hf2liVx, hf2liVy = hf2liV["x"][0], hf2liV["y"][0] # Vrms
@@ -544,13 +543,12 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
             "comment": inspect.cleandoc(f"""
-            Warm modulation
+            ns
             """),
             "device": {
-                "id": "ns29t20x2a1d16",
-                "comment": "60 nm NS A, same as in MURI review data"
+                "id": "ns30q2d3",
+                "comment": ""
                 },
-            "lights": "on",
             "heater": {
                 "voltage": 0.0,
                 "totalResistanceOhm": 1.077e3,
@@ -562,8 +560,8 @@ def nidaq():
                 "preampB": 100e3,
                 "daqInput": 1e6,
                 "magnet": 100e3,
-                "heater": 1e6,
-                "cernoxISource": 100e3,
+                "heater": 100e3,
+                "cernoxISource": 1e6,
                 "cernoxISink": 1e6,
                 "cernoxVA": 1e6,
                 "cernoxVB": 1e6,
@@ -572,7 +570,7 @@ def nidaq():
                 "gain": 50,
                 "filter": {
                     "mode": "12 dB/oct low-pass",
-                    "frequencyHz": 100e3,
+                    "frequencyHz": 30e3,
                     },
                 "instrument": {
                     "name": "Signal Recovery 5113",
@@ -584,31 +582,31 @@ def nidaq():
                 "type": "Cernox",
                 "serial": "X160190",
                 },
-            "magnet": {
-                "daqTriangleCurrentFromZero": {
-                    "device": deviceName,
-                    "channel": "ao1",
-                    "totalResistanceOhms": 338.2,
-                    "amplitudeAmps": 4e-3,
-                    "stepAmps": 80e-6,
-                    "regenerations": 1,
-                    # TODO: Fix the interface so that a nonsense frequency is not necessary.
-                    "maxFrequency": 0.0,
-                    },
-                },
+#           "magnet": {
+#               "daqTriangleCurrentFromZero": {
+#                   "device": deviceName,
+#                   "channel": "ao1",
+#                   "totalResistanceOhms": 338.2,
+#                   "amplitudeAmps": 4e-3,
+#                   "stepAmps": 80e-6,
+#                   "regenerations": 1,
+#                   # TODO: Fix the interface so that a nonsense frequency is not necessary.
+#                   "maxFrequency": 0.0,
+#                   },
+#               },
             "daqiv": {
                 "daqTriangleCurrentFromZero": {
                     "device": deviceName,
-                    "channel": "ao3",
+                    "channel": "ao1",
                     "totalResistanceOhms": 14.27e3 + 2.5e3,
-                    "amplitudeAmps": 150e-6,
+                    "amplitudeAmps": 50e-6,
                     "stepAmps": 40e-9,
                     "regenerations": 1,
-                    "maxFrequency": 10.0,
+                    "maxFrequency": 1.0,
                     },
                 "input": {
                     "device": deviceName,
-                    "channel": "ai20",
+                    "channel": "ai16",
                     "minVoltage": -5.0,
                     "maxVoltage": 5.0,
                     },
@@ -619,16 +617,16 @@ def nidaq():
                     },
                 },
             "version": {
-                    "number": 2,
-                    "comment": inspect.cleandoc(f"""
-                    Fixed double factor of two in sample calculations.
-                    """),
-                    },
+                "number": 2,
+                },
             }
 
     try:
         zisession = ZISession("localhost", hf2 = True)
         hf2li = zisession.connect_device("DEV131")
+
+        mfsession = ZISession("192.168.53.222")
+        mf = mfsession.connect_device("DEV3447")
 
         logging.info("== IV ==")
         output = daqTriangleCurrentFromZero(**p["daqiv"]["daqTriangleCurrentFromZero"])
@@ -636,9 +634,9 @@ def nidaq():
         daqio = DAQSingleIO(input, output)
         p["daqiv"]["daqio"] = daqio
 
-        logging.info("== MAGNET ==")
-        magnetOutputTask = daqTriangleCurrentFromZero(**p["magnet"]["daqTriangleCurrentFromZero"])
-        p["magnet"]["outputTask"] = magnetOutputTask
+#       logging.info("== MAGNET ==")
+#       magnetOutputTask = daqTriangleCurrentFromZero(**p["magnet"]["daqTriangleCurrentFromZero"])
+#       p["magnet"]["outputTask"] = magnetOutputTask
 
         dataRootDirectory.mkdir(parents = True, exist_ok = True)
         parametersRootDirectory.mkdir(parents = True, exist_ok = True)
@@ -655,20 +653,21 @@ def nidaq():
         else:
             print(dataRootDirectory)
 
-            magnetSamples = len(magnetOutputTask.signal.samples)
-            magnetWriter = AnalogUnscaledWriter(magnetOutputTask.task.out_stream, auto_start = False)
-            magnetWriter.verify_array_shape = False # set True while debugging
+#           magnetSamples = len(magnetOutputTask.signal.samples)
+#           magnetWriter = AnalogUnscaledWriter(magnetOutputTask.task.out_stream, auto_start = False)
+#           magnetWriter.verify_array_shape = False # set True while debugging
 
             p["thermometer"]["initialResistanceOhms"] = cernoxResistanceOhms(hf2li)
 
             with open(daqioDataPath.resolve(), "xb+") as dataFile:
-                for (i, magnetSample) in enumerate(magnetOutputTask.signal.samples):
-                    print(f"({i} / {magnetSamples}): magnet sample {magnetSample}")
-                    magnetOutputTask.task.start()
-                    magnetWriter.write_int16(np.array([[magnetSample]]))
-                    magnetOutputTask.task.stop()
+#               for (i, magnetSample) in enumerate(magnetOutputTask.signal.samples):
+#                   print(f"({i} / {magnetSamples}): magnet sample {magnetSample}")
+#                   magnetOutputTask.task.start()
+#                   magnetWriter.write_int16(np.array([[magnetSample]]))
+#                   magnetOutputTask.task.stop()
 
-                    daqioHardwareParameters = asyncio.run(daqSingleIO(daqio, dataFile = dataFile))
+#                   daqioHardwareParameters = asyncio.run(daqSingleIO(daqio, dataFile = dataFile))
+                daqioHardwareParameters = asyncio.run(daqSingleIO(daqio, dataFile = dataFile))
 
             # Sometimes the HF2LI data server dies on Orenstein,
             # so ignore a failed attempt to read the thermometer at the end,
@@ -685,7 +684,7 @@ def nidaq():
                 f.write(parametersJSON)
 
     finally:
-        magnetOutputTask.task.close()
+#       magnetOutputTask.task.close()
         output.task.close()
         input.task.close()
 
