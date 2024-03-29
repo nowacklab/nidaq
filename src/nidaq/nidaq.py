@@ -543,9 +543,8 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
             "comment": inspect.cleandoc(f"""
-            SQUID connections grounded
-            Back to preamp output with preamp inputs grounded
-            Preamp offset to -10 mV
+            SQUID connections reconnected
+            Preamp offset nulled
             """),
             "device": {
                 "id": "ns30q2d3",
