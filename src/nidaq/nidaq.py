@@ -544,6 +544,8 @@ def nidaq():
             "execution": execution,
             "comment": inspect.cleandoc(f"""
             Other connections open
+            HF2LI connected to monitor preamp output
+            (so temperature readings are not correct)
             """),
             "device": {
                 "id": "ns30q2d3",
@@ -599,7 +601,7 @@ def nidaq():
                     "device": deviceName,
                     "channel": "ao1",
                     "totalResistanceOhms": 14.27e3 + 2.5e3,
-                    "amplitudeAmps": 250e-6,
+                    "amplitudeAmps": 300e-6,
                     "stepAmps": 40e-9,
                     "regenerations": 1,
                     "maxFrequency": 1.0,
