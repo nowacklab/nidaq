@@ -543,9 +543,7 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
             "comment": inspect.cleandoc(f"""
-            Duh, channel was set to ao1, not ao0
-            Connected to SQUID
-            HF2LI back to monitoring Cernox
+            Remove 9 kOhm resistor to increase maximum output current
             """),
             "device": {
                 "id": "ns30q2d3",
@@ -600,7 +598,7 @@ def nidaq():
                 "daqTriangleCurrentFromZero": {
                     "device": deviceName,
                     "channel": "ao0",
-                    "totalResistanceOhms": 14.27e3 + 2.5e3,
+                    "totalResistanceOhms": 14.27e3 + 2.5e3 - 9.02e3,
                     "amplitudeAmps": 550e-6,
                     "stepAmps": 40e-9,
                     "regenerations": 1,
