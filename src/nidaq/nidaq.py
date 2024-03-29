@@ -544,8 +544,8 @@ def nidaq():
             "execution": execution,
             "comment": inspect.cleandoc(f"""
             Duh, channel was set to ao1, not ao0
-            HF2LI connected to monitor DAQ output (before filter)
-            (so temperature readings are not correct)
+            Connected to SQUID
+            HF2LI back to monitoring Cernox
             """),
             "device": {
                 "id": "ns30q2d3",
