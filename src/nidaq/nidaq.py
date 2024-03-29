@@ -543,7 +543,7 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
             "comment": inspect.cleandoc(f"""
-            Other connections open
+            Duh, channel was set to ao1, not ao0
             HF2LI connected to monitor DAQ output (before filter)
             (so temperature readings are not correct)
             """),
@@ -599,9 +599,9 @@ def nidaq():
             "daqiv": {
                 "daqTriangleCurrentFromZero": {
                     "device": deviceName,
-                    "channel": "ao1",
+                    "channel": "ao0",
                     "totalResistanceOhms": 14.27e3 + 2.5e3,
-                    "amplitudeAmps": 500e-6,
+                    "amplitudeAmps": 50e-6,
                     "stepAmps": 40e-9,
                     "regenerations": 1,
                     "maxFrequency": 0.05,
