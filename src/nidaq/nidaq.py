@@ -544,6 +544,7 @@ def nidaq():
             "execution": execution,
             "comment": inspect.cleandoc(f"""
             SQUID connections grounded
+            DAQ ai16 grounded
             """),
             "device": {
                 "id": "ns30q2d3",
