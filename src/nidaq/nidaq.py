@@ -543,7 +543,7 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
             "comment": inspect.cleandoc(f"""
-            ns
+            SQUID connections grounded
             """),
             "device": {
                 "id": "ns30q2d3",
