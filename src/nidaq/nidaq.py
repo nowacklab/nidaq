@@ -544,7 +544,7 @@ def nidaq():
             "execution": execution,
             "comment": inspect.cleandoc(f"""
             Other connections open
-            HF2LI connected to monitor preamp output
+            HF2LI connected to monitor DAQ output (before filter)
             (so temperature readings are not correct)
             """),
             "device": {
