@@ -626,8 +626,8 @@ def nidaq():
         zisession = ZISession("localhost", hf2 = True)
         hf2li = zisession.connect_device("DEV131")
 
-        mfsession = ZISession("192.168.53.222")
-        mf = mfsession.connect_device("DEV3447")
+#       mfsession = ZISession("192.168.53.222")
+#       mf = mfsession.connect_device("DEV3447")
 
         logging.info("== IV ==")
         output = daqTriangleCurrentFromZero(**p["daqiv"]["daqTriangleCurrentFromZero"])
