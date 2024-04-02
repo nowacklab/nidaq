@@ -603,8 +603,8 @@ def nidaq():
                     "totalResistanceOhms": 14.27e3 + 2.5e3 - 9.02e3,
                     "amplitudeAmps": 670e-6,
                     "stepAmps": 40e-9,
-                    "regenerations": 1,
-                    "maxFrequency": 1.0,
+                    "regenerations": 32,
+                    "maxFrequency": 0.1,
                     },
                 "input": {
                     "device": deviceName,
@@ -643,7 +643,7 @@ def nidaq():
 
         magnetTotalResistanceOhms = 390.2
         p["magnet"]["totalResistanceOhms"] = magnetTotalResistanceOhms
-        magnetThermalizationSeconds = 1.0 # testing only
+        magnetThermalizationSeconds = 12.0
         p["magnet"]["thermalizationSeconds"] = magnetThermalizationSeconds
         magnetQuarterCurrentsA = 1e-3 * np.linspace(0, 20, 41)
         magnetCurrentsA = np.concatenate([
@@ -687,6 +687,8 @@ def nidaq():
                    magnetTemperatures.append(np.array([cernox_Ohm_to_K(cernoxResistanceOhms(hf2li))]))
                    daqioHardwareParameters = asyncio.run(daqSingleIO(daqio, dataFile = dataFile))
                    magnetTemperatures.append(np.array([cernox_Ohm_to_K(cernoxResistanceOhms(hf2li))]))
+
+            mf.auxouts[0].offset(0.0)
 
             # Sometimes the HF2LI data server dies on Orenstein,
             # so ignore a failed attempt to read the thermometer at the end,
