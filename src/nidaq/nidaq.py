@@ -538,7 +538,8 @@ def nidaq():
     rootDirectory = Path("daqiv-" + timePathComponent(startTime))
     dataRootDirectory = rootDirectory
     daqioDataPath = dataRootDirectory / Path("input-samples.bin")
-    magnetTemperaturePath = dataRootDirectory / Path("magnet-temperatures.npy")
+    magnetVoltagePath = dataRootDirectory / Path("magnet-voltages-V.npy")
+    magnetTemperaturePath = dataRootDirectory / Path("magnet-temperatures-K.npy")
     parametersPath = rootDirectory / Path("parameters.json")
     parametersRootDirectory = parametersPath.parent # / Path("parameter-data")
 
@@ -640,6 +641,26 @@ def nidaq():
         dataRootDirectory.mkdir(parents = True, exist_ok = True)
         parametersRootDirectory.mkdir(parents = True, exist_ok = True)
 
+        magnetTotalResistanceOhms = 390.2
+        p["magnet"]["totalResistanceOhms"] = magnetTotalResistanceOhms
+        magnetThermalizationSeconds = 1.0 # testing only
+        p["magnet"]["thermalizationSeconds"] = magnetThermalizationSeconds
+        magnetQuarterCurrentsA = np.linspace(0, 20, 41)
+        magnetCurrentsA = np.concatenate([
+            magnetQuarterCurrentsA,
+            np.flip(magnetQuarterCurrentsA),
+            -magnetQuarterCurrentsA[1:],
+            np.flip(-magnetQuarterCurrentsA[1:]),
+            ])
+        magnetVoltagesV = magnetCurrentsA * magnetTotalResistanceOhms
+        p["magnet"]["voltagesV"] = {
+                "path": Path(os.path.relpath(magnetVoltagePath, parametersPath.parent)).as_posix(),
+        }
+        np.save(magnetVoltagePath.resolve(), magnetVoltagesV)
+        p["magnet"]["temperaturesK"] = {
+                "path": Path(os.path.relpath(magnetTemperaturePath, parametersPath.parent)).as_posix(),
+        }
+
         if arguments.command == "dry":
             import yaml
             parametersJSON = json.dumps(p, indent = 2, cls = RecordJSONEncoder, state = {
@@ -651,20 +672,6 @@ def nidaq():
                 f.write(parametersJSON)
         else:
             print(dataRootDirectory)
-
-            magnetTotalResistanceOhms = 390.2
-            p["magnet"]["totalResistanceOhms"] = magnetTotalResistanceOhms
-            magnetThermalizationSeconds = 1.0 # testing only
-            p["magnet"]["thermalizationSeconds"] = magnetThermalizationSeconds
-            magnetQuarterCurrentsA = np.linspace(0, 20, 41)
-            magnetCurrentsA = np.concatenate([
-                magnetQuarterCurrentsA,
-                np.flip(magnetQuarterCurrentsA),
-                -magnetQuarterCurrentsA[1:],
-                np.flip(-magnetQuarterCurrentsA[1:]),
-                ])
-            magnetVoltagesV = magnetCurrentsA * magnetTotalResistanceOhms
-            p["magnet"]["voltagesV"] = magnetVoltagesV
 
             cernox_R_Ohms = cernoxResistanceOhms(hf2li)
             p["thermometer"]["initialResistanceOhms"] = cernox_R_Ohms
