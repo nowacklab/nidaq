@@ -645,7 +645,7 @@ def nidaq():
         p["magnet"]["totalResistanceOhms"] = magnetTotalResistanceOhms
         magnetThermalizationSeconds = 1.0 # testing only
         p["magnet"]["thermalizationSeconds"] = magnetThermalizationSeconds
-        magnetQuarterCurrentsA = np.linspace(0, 20, 41)
+        magnetQuarterCurrentsA = 1e-3 * np.linspace(0, 20, 41)
         magnetCurrentsA = np.concatenate([
             magnetQuarterCurrentsA,
             np.flip(magnetQuarterCurrentsA),
