@@ -543,7 +543,7 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
             "comment": inspect.cleandoc(f"""
-            First check for second cooldown
+            Try out MFLI magnet current.
             """),
             "cooldown": 2,
             "device": {
@@ -626,7 +626,7 @@ def nidaq():
         zisession = ZISession("localhost", hf2 = True)
         hf2li = zisession.connect_device("DEV131")
 
-#       mfsession = ZISession("192.168.53.222")
+#       mfsession = ZISession("192.168.100.78")
 #       mf = mfsession.connect_device("DEV3447")
 
         logging.info("== IV ==")
