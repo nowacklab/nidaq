@@ -543,8 +543,9 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
             "comment": inspect.cleandoc(f"""
-            Remove 9 kOhm resistor to increase maximum output current
+            First check for second cooldown
             """),
+            "cooldown": 2,
             "device": {
                 "id": "ns30q2d3",
                 "comment": ""
@@ -601,7 +602,7 @@ def nidaq():
                     "totalResistanceOhms": 14.27e3 + 2.5e3 - 9.02e3,
                     "amplitudeAmps": 670e-6,
                     "stepAmps": 40e-9,
-                    "regenerations": 8*1024,
+                    "regenerations": 1,
                     "maxFrequency": 0.1,
                     },
                 "input": {
