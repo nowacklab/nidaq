@@ -17,6 +17,7 @@ dependencies = [
   "numpy",
   "nidaqmx",
   "zhinst",
+  "npy_append_array",
 ]
 dynamic = [
   "version",
