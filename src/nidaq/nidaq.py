@@ -23,7 +23,6 @@ import time
 from datetime import datetime
 import math
 from npy_append_array import NpyAppendArray as npaa
-import cernox
 
 from zhinst.toolkit import Session as ZISession
 
@@ -38,6 +37,7 @@ import argparse
 import webbrowser # for opening source files, despite the name
 import subprocess
 from . import code_tracking
+from . import cernox
 
 def busysleep(s):
     t0 = time.perf_counter()
