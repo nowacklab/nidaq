@@ -538,8 +538,8 @@ def nidaq():
     rootDirectory = Path("daqiv-" + timePathComponent(startTime))
     dataRootDirectory = rootDirectory
     daqioDataPath = dataRootDirectory / Path("input-samples.bin")
-    magnetVoltagePath = dataRootDirectory / Path("magnet-voltages-V.npy")
-    magnetTemperaturePath = dataRootDirectory / Path("magnet-temperatures-K.npy")
+    heaterVoltagePath = dataRootDirectory / Path("heater-voltages-V.npy")
+    heaterTemperaturePath = dataRootDirectory / Path("heater-temperatures-K.npy")
     parametersPath = rootDirectory / Path("parameters.json")
     parametersRootDirectory = parametersPath.parent # / Path("parameter-data")
 
@@ -555,17 +555,17 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
             "comment": inspect.cleandoc(f"""
-            Try out MFLI magnet current.
+            IV-temperature sweep
+            (after power outage, but SQUID looks OK)
             """),
             "cooldown": 2,
             "device": {
                 "id": "ns30q2d3",
                 "comment": ""
                 },
-            "heater": {
-                "voltage": 0.0,
-                "totalResistanceOhm": 1.077e3,
-                "coldResistanceOhm": 0.739e3,
+            "heater": { # Sweep parameters filled in later
+                "totalResistanceOhm": 1.071e3,
+                "coldResistanceOhm": 0.740e3,
                 },
             "filterCutoffs": {
                 "daqOutput": 100e3,
@@ -595,7 +595,7 @@ def nidaq():
                 "type": "Cernox",
                 "serial": "X160190",
                 },
-           "magnet": {}, # Filled in later
+#           "magnet": {}, # Filled in later
             "daqiv": {
                 "daqTriangleCurrentFromZero": {
                     "device": deviceName,
@@ -603,8 +603,8 @@ def nidaq():
                     "totalResistanceOhms": 14.27e3 + 2.5e3 - 9.02e3,
                     "amplitudeAmps": 670e-6,
                     "stepAmps": 40e-9,
-                    "regenerations": 32,
-                    "maxFrequency": 0.1,
+                    "regenerations": 50,
+                    "maxFrequency": 1.0,
                     },
                 "input": {
                     "device": deviceName,
@@ -641,24 +641,18 @@ def nidaq():
         dataRootDirectory.mkdir(parents = True, exist_ok = True)
         parametersRootDirectory.mkdir(parents = True, exist_ok = True)
 
-        magnetTotalResistanceOhms = 390.2
-        p["magnet"]["totalResistanceOhms"] = magnetTotalResistanceOhms
-        magnetThermalizationSeconds = 12.0
-        p["magnet"]["thermalizationSeconds"] = magnetThermalizationSeconds
-        magnetQuarterCurrentsA = 1e-3 * np.linspace(0, 20, 41)
-        magnetCurrentsA = np.concatenate([
-            magnetQuarterCurrentsA,
-            np.flip(magnetQuarterCurrentsA),
-            -magnetQuarterCurrentsA[1:],
-            np.flip(-magnetQuarterCurrentsA[1:]),
-            ])
-        magnetVoltagesV = magnetCurrentsA * magnetTotalResistanceOhms
-        p["magnet"]["voltagesV"] = {
-                "path": Path(os.path.relpath(magnetVoltagePath, parametersPath.parent)).as_posix(),
+        heaterTotalResistanceOhm = p["heater"]["totalResistanceOhm"]
+        heaterThermalizationSeconds = 65.0
+        p["heater"]["thermalizationSeconds"] = heaterThermalizationSeconds
+        heaterMaxV = 7.0
+        heaterPowersW = np.linspace(0, heaterMaxV**2 / heaterTotalResistanceOhm, 101)
+        heaterVoltagesV = np.sqrt(heaterPowersW * heaterTotalResistanceOhm)
+        p["heater"]["voltagesV"] = {
+                "path": Path(os.path.relpath(heaterVoltagePath, parametersPath.parent)).as_posix(),
         }
-        np.save(magnetVoltagePath.resolve(), magnetVoltagesV)
-        p["magnet"]["temperaturesK"] = {
-                "path": Path(os.path.relpath(magnetTemperaturePath, parametersPath.parent)).as_posix(),
+        np.save(heaterVoltagePath.resolve(), heaterVoltagesV)
+        p["heater"]["temperaturesK"] = {
+                "path": Path(os.path.relpath(heaterTemperaturePath, parametersPath.parent)).as_posix(),
         }
 
         if arguments.command == "dry":
@@ -677,18 +671,18 @@ def nidaq():
             p["thermometer"]["initialResistanceOhms"] = cernox_R_Ohms
             p["thermometer"]["initialTemperatureK"] = cernox_Ohm_to_K(cernox_R_Ohms)
 
-            magnetSamples = len(magnetVoltagesV)
-            magnetMinV, magnetMaxV = np.min(magnetVoltagesV), np.max(magnetVoltagesV)
-            with open(daqioDataPath.resolve(), "xb+") as dataFile, npaa(magnetTemperaturePath.resolve()) as magnetTemperatures:
-               for (i, magnetVoltageV) in enumerate(magnetVoltagesV):
-                   print(f"({i + 1} / {magnetSamples}) magnet at {magnetVoltageV:0.2f} V in [{magnetMinV:0.2f}, {magnetMaxV:0.2f}]", flush = True)
-                   mf.auxouts[0].offset(magnetVoltageV)
-                   busysleep(magnetThermalizationSeconds)
-                   magnetTemperatures.append(np.array([cernox_Ohm_to_K(cernoxResistanceOhms(hf2li))]))
+            heaterSamples = len(heaterVoltagesV)
+            heaterMinV, heaterMaxV = np.min(heaterVoltagesV), np.max(heaterVoltagesV)
+            with open(daqioDataPath.resolve(), "xb+") as dataFile, npaa(heaterTemperaturePath.resolve()) as heaterTemperatures:
+               for (i, heaterVoltageV) in enumerate(heaterVoltagesV):
+                   print(f"({i + 1} / {heaterSamples}) heater at {heaterVoltageV:0.2f} V in [{heaterMinV:0.2f}, {heaterMaxV:0.2f}]", flush = True)
+                   mf.auxouts[2].offset(heaterVoltageV)
+                   busysleep(heaterThermalizationSeconds)
+                   heaterTemperatures.append(np.array([cernox_Ohm_to_K(cernoxResistanceOhms(hf2li))]))
                    daqioHardwareParameters = asyncio.run(daqSingleIO(daqio, dataFile = dataFile))
-                   magnetTemperatures.append(np.array([cernox_Ohm_to_K(cernoxResistanceOhms(hf2li))]))
+                   heaterTemperatures.append(np.array([cernox_Ohm_to_K(cernoxResistanceOhms(hf2li))]))
 
-            mf.auxouts[0].offset(0.0)
+            mf.auxouts[2].offset(0.0)
 
             # Sometimes the HF2LI data server dies on Orenstein,
             # so ignore a failed attempt to read the thermometer at the end,
