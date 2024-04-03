@@ -560,7 +560,7 @@ def nidaq():
             """),
             "cooldown": 2,
             "device": {
-                "id": "ns30q2d3",
+                "id": "ns30q2d13",
                 "comment": ""
                 },
             "heater": { # Sweep parameters filled in later
