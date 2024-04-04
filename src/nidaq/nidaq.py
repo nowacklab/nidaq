@@ -556,11 +556,11 @@ def nidaq():
             "execution": execution,
             "comment": inspect.cleandoc(f"""
             IV-temperature sweep
-            (after power outage, but SQUID looks OK)
+            Return back to device 3
             """),
             "cooldown": 2,
             "device": {
-                "id": "ns30q2d13",
+                "id": "ns30q2d3",
                 "comment": ""
                 },
             "heater": { # Sweep parameters filled in later
@@ -645,7 +645,7 @@ def nidaq():
         heaterThermalizationSeconds = 65.0
         p["heater"]["thermalizationSeconds"] = heaterThermalizationSeconds
         heaterMaxV = 7.0
-        heaterPowersW = np.linspace(0, heaterMaxV**2 / heaterTotalResistanceOhm, 101)
+        heaterPowersW = np.linspace(0, heaterMaxV**2 / heaterTotalResistanceOhm, 6)
         heaterVoltagesV = np.sqrt(heaterPowersW * heaterTotalResistanceOhm)
         p["heater"]["voltagesV"] = {
                 "path": Path(os.path.relpath(heaterVoltagePath, parametersPath.parent)).as_posix(),
