@@ -556,7 +556,7 @@ def nidaq():
             "execution": execution,
             "comment": inspect.cleandoc(f"""
             Others open
-            1,2,3,4 grounded
+            1,3,4 open
             """),
             "cooldown": 3,
             "device": {
@@ -603,7 +603,7 @@ def nidaq():
                     "device": deviceName,
                     "channel": "ao0",
                     "totalResistanceOhms": 14.27e3 + 2.5e3 - 9.02e3,
-                    "amplitudeAmps": 550e-6,
+                    "amplitudeAmps": 600e-6,
                     "stepAmps": 40e-9,
                     "regenerations": 1,
                     "maxFrequency": 1.0,
