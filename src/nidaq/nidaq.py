@@ -557,6 +557,7 @@ def nidaq():
             "comment": inspect.cleandoc(f"""
             Others open
             Source 16, sink 15, V across 14 and 13
+            Nulled preamp offset for 10x gain
             """),
             "cooldown": 3,
             "device": {
