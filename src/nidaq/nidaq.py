@@ -555,7 +555,7 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
             "comment": inspect.cleandoc(f"""
-            First test sweep with sample connections grounded to check code.
+            First test IV sweep with sample connections open.
             """),
             "cooldown": 3,
             "device": {
