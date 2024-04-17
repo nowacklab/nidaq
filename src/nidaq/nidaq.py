@@ -556,7 +556,7 @@ def nidaq():
             "execution": execution,
             "comment": inspect.cleandoc(f"""
             Others open
-            Source 16, sink 15, V across 14 and 13
+            Source 16, 15 OPEN, V across 14 and 13
             """),
             "cooldown": 3,
             "device": {
