@@ -555,7 +555,7 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
             "comment": inspect.cleandoc(f"""
-            Others grounded
+            Others open
             Source 16, sink 15, V across 14 and 13
             """),
             "cooldown": 3,
