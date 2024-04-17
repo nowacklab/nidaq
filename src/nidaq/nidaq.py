@@ -556,6 +556,7 @@ def nidaq():
             "execution": execution,
             "comment": inspect.cleandoc(f"""
             First test IV sweep with sample connections open.
+            Increase current to find critical current.
             """),
             "cooldown": 3,
             "device": {
@@ -602,7 +603,7 @@ def nidaq():
                     "device": deviceName,
                     "channel": "ao0",
                     "totalResistanceOhms": 14.27e3 + 2.5e3 - 9.02e3,
-                    "amplitudeAmps": 300e-6,
+                    "amplitudeAmps": 400e-6,
                     "stepAmps": 40e-9,
                     "regenerations": 1,
                     "maxFrequency": 1.0,
