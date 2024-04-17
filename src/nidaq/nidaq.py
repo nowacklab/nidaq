@@ -555,8 +555,7 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
             "comment": inspect.cleandoc(f"""
-            First test IV sweep with sample connections open.
-            Increase current to find critical current.
+            Not-connected test
             """),
             "cooldown": 3,
             "device": {
@@ -606,7 +605,7 @@ def nidaq():
                     "amplitudeAmps": 500e-6,
                     "stepAmps": 40e-9,
                     "regenerations": 1,
-                    "maxFrequency": 1.0,
+                    "maxFrequency": 10.0,
                     },
                 "input": {
                     "device": deviceName,
