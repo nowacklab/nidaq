@@ -555,17 +555,15 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
             "comment": inspect.cleandoc(f"""
-            IV-temperature sweep
-            Return back to device 3
+            First test sweep with sample connections grounded to check code.
             """),
-            "cooldown": 2,
+            "cooldown": 3,
             "device": {
-                "id": "ns30q2d3",
-                "comment": ""
+                "id": "ns30q1d3",
                 },
             "heater": { # Sweep parameters filled in later
-                "totalResistanceOhm": 1.071e3,
-                "coldResistanceOhm": 0.740e3,
+                "totalResistanceOhm": 1.068e3,
+                "coldResistanceOhm": 0.736e3,
                 },
             "filterCutoffs": {
                 "daqOutput": 100e3,
@@ -595,13 +593,16 @@ def nidaq():
                 "type": "Cernox",
                 "serial": "X160190",
                 },
-#           "magnet": {}, # Filled in later
+            "magnet": { # Filled in later
+                "selfResistanceOhms": 59.5,
+                "totalResistanceOhms": 396.8,
+            },
             "daqiv": {
                 "daqTriangleCurrentFromZero": {
                     "device": deviceName,
                     "channel": "ao0",
                     "totalResistanceOhms": 14.27e3 + 2.5e3 - 9.02e3,
-                    "amplitudeAmps": 670e-6,
+                    "amplitudeAmps": 300e-6,
                     "stepAmps": 40e-9,
                     "regenerations": 50,
                     "maxFrequency": 1.0,
@@ -641,19 +642,19 @@ def nidaq():
         dataRootDirectory.mkdir(parents = True, exist_ok = True)
         parametersRootDirectory.mkdir(parents = True, exist_ok = True)
 
-        heaterTotalResistanceOhm = p["heater"]["totalResistanceOhm"]
-        heaterThermalizationSeconds = 65.0
-        p["heater"]["thermalizationSeconds"] = heaterThermalizationSeconds
-        heaterMaxV = 7.0
-        heaterPowersW = np.linspace(0, heaterMaxV**2 / heaterTotalResistanceOhm, 6)
-        heaterVoltagesV = np.sqrt(heaterPowersW * heaterTotalResistanceOhm)
-        p["heater"]["voltagesV"] = {
-                "path": Path(os.path.relpath(heaterVoltagePath, parametersPath.parent)).as_posix(),
-        }
-        np.save(heaterVoltagePath.resolve(), heaterVoltagesV)
-        p["heater"]["temperaturesK"] = {
-                "path": Path(os.path.relpath(heaterTemperaturePath, parametersPath.parent)).as_posix(),
-        }
+#       heaterTotalResistanceOhm = p["heater"]["totalResistanceOhm"]
+#       heaterThermalizationSeconds = 65.0
+#       p["heater"]["thermalizationSeconds"] = heaterThermalizationSeconds
+#       heaterMaxV = 7.0
+#       heaterPowersW = np.linspace(0, heaterMaxV**2 / heaterTotalResistanceOhm, 6)
+#       heaterVoltagesV = np.sqrt(heaterPowersW * heaterTotalResistanceOhm)
+#       p["heater"]["voltagesV"] = {
+#               "path": Path(os.path.relpath(heaterVoltagePath, parametersPath.parent)).as_posix(),
+#       }
+#       np.save(heaterVoltagePath.resolve(), heaterVoltagesV)
+#       p["heater"]["temperaturesK"] = {
+#               "path": Path(os.path.relpath(heaterTemperaturePath, parametersPath.parent)).as_posix(),
+#       }
 
         if arguments.command == "dry":
             import yaml
@@ -671,16 +672,17 @@ def nidaq():
             p["thermometer"]["initialResistanceOhms"] = cernox_R_Ohms
             p["thermometer"]["initialTemperatureK"] = cernox_Ohm_to_K(cernox_R_Ohms)
 
-            heaterSamples = len(heaterVoltagesV)
-            heaterMinV, heaterMaxV = np.min(heaterVoltagesV), np.max(heaterVoltagesV)
-            with open(daqioDataPath.resolve(), "xb+") as dataFile, npaa(heaterTemperaturePath.resolve()) as heaterTemperatures:
-               for (i, heaterVoltageV) in enumerate(heaterVoltagesV):
-                   print(f"({i + 1} / {heaterSamples}) heater at {heaterVoltageV:0.2f} V in [{heaterMinV:0.2f}, {heaterMaxV:0.2f}]", flush = True)
-                   mf.auxouts[2].offset(heaterVoltageV)
-                   busysleep(heaterThermalizationSeconds)
-                   heaterTemperatures.append(np.array([cernox_Ohm_to_K(cernoxResistanceOhms(hf2li))]))
-                   daqioHardwareParameters = asyncio.run(daqSingleIO(daqio, dataFile = dataFile))
-                   heaterTemperatures.append(np.array([cernox_Ohm_to_K(cernoxResistanceOhms(hf2li))]))
+#           heaterSamples = len(heaterVoltagesV)
+#           heaterMinV, heaterMaxV = np.min(heaterVoltagesV), np.max(heaterVoltagesV)
+#           with open(daqioDataPath.resolve(), "xb+") as dataFile, npaa(heaterTemperaturePath.resolve()) as heaterTemperatures:
+            with open(daqioDataPath.resolve(), "xb+") as dataFile:
+               #for (i, heaterVoltageV) in enumerate(heaterVoltagesV):
+               #    print(f"({i + 1} / {heaterSamples}) heater at {heaterVoltageV:0.2f} V in [{heaterMinV:0.2f}, {heaterMaxV:0.2f}]", flush = True)
+               #    mf.auxouts[2].offset(heaterVoltageV)
+               #    busysleep(heaterThermalizationSeconds)
+               #    heaterTemperatures.append(np.array([cernox_Ohm_to_K(cernoxResistanceOhms(hf2li))]))
+                daqioHardwareParameters = asyncio.run(daqSingleIO(daqio, dataFile = dataFile))
+               #   heaterTemperatures.append(np.array([cernox_Ohm_to_K(cernoxResistanceOhms(hf2li))]))
 
             mf.auxouts[2].offset(0.0)
 
