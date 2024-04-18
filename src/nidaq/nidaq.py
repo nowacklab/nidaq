@@ -686,7 +686,7 @@ def nidaq():
                 daqioHardwareParameters = asyncio.run(daqSingleIO(daqio, dataFile = dataFile))
                #   heaterTemperatures.append(np.array([cernox_Ohm_to_K(cernoxResistanceOhms(hf2li))]))
 
-            mf.auxouts[2].offset(0.0)
+            #mf.auxouts[2].offset(0.0)
 
             # Sometimes the HF2LI data server dies on Orenstein,
             # so ignore a failed attempt to read the thermometer at the end,
