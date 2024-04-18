@@ -556,12 +556,12 @@ def nidaq():
             "execution": execution,
             "comment": inspect.cleandoc(f"""
             Others open
-            Source 4, sink 2, V across 1 and 3
+            Source 16, sink 14, V across 13 and 15
             Nulled preamp offset for 10x gain
             """),
             "cooldown": 3,
             "device": {
-                "id": "ns30q1d16",
+                "id": "ns30q1d3",
                 },
             "heater": { # Sweep parameters filled in later
                 "totalResistanceOhm": 1.068e3,
