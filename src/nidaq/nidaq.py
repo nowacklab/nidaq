@@ -605,11 +605,10 @@ def nidaq():
                 "daqTriangleCurrentFromZero": {
                     "device": deviceName,
                     "channel": "ao0",
-                    "totalResistanceOhms": 796.0,
+                    "totalResistanceOhms": 7.96e3,
                     #"totalResistanceOhms": 14.27e3 + 2.5e3 - 9.02e3,
                     "amplitudeAmps": 10e-6,
-                    #"stepAmps": 40e-9,
-                    "stepAmps": 100e-9,
+                    "stepAmps": 40e-9,
                     "regenerations": 1,
                     "maxFrequency": 1.0,
                     },
