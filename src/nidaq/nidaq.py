@@ -584,7 +584,7 @@ def nidaq():
             "preamp": {
                 "gain": 10,
                 "filter": {
-                    "mode": "12 dB/oct low-pass",
+                    "mode": "6 dB/oct low-pass",
                     "frequencyHz": 30e3,
                     },
                 "instrument": {
