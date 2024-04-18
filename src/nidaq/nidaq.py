@@ -555,13 +555,15 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
             "comment": inspect.cleandoc(f"""
+            Check validity by measuring Cernox IV
             Others grounded
-            Source 15, sink 16, V across 13 and 14
+            Source 17, sink 20, V across 18 and 19
             Nulled preamp offset for 10x gain
             """),
             "cooldown": 3,
             "device": {
-                "id": "ns30q1d3",
+                #"id": "ns30q1d3",
+                "id": "Cernox X160190",
                 },
             "heater": { # Sweep parameters filled in later
                 "totalResistanceOhm": 1.068e3,
@@ -603,8 +605,8 @@ def nidaq():
                 "daqTriangleCurrentFromZero": {
                     "device": deviceName,
                     "channel": "ao0",
-                    "totalResistanceOhms": 14.27e3 + 2.5e3 - 9.02e3,
-                    "amplitudeAmps": 200e-6,
+                    "totalResistanceOhms": 14.27e3 + 2.5e3 - 9.02e3 + 242.4,
+                    "amplitudeAmps": 10e-6,
                     "stepAmps": 40e-9,
                     "regenerations": 1,
                     "maxFrequency": 1.0,
