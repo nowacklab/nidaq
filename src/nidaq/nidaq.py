@@ -424,7 +424,7 @@ def daqTriangleVoltageFromZero(
 
     sampleStep = int(coefficients[1] * stepVolts)
     if sampleStep == 0:
-        raise DAQOutputError(f"Step of {stepVolts} V is too small. Minimum possible step is {referenceVoltage / c[1]} V.")
+        raise DAQOutputError(f"Step of {stepVolts} V is too small. Minimum possible step is {referenceVoltage / coefficients[1]} V.")
 
 
     sampleDesiredAmplitude = coefficients[1] * amplitudeVolts
