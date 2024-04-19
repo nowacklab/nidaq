@@ -558,7 +558,7 @@ def nidaq():
             Others grounded
             Source 15, sink 14, V across 13 and 16
             No IV filters and other filters same
-            Nulled preamp offset for 10x gain
+            Fixed preamp (was grounded before)
             """),
             "cooldown": 3,
             "device": {
