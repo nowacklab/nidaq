@@ -555,9 +555,8 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
             "comment": inspect.cleandoc(f"""
-            First warm IV
             Others grounded
-            Source 16, sink 14, V across 13 and 15
+            Source 16, sink 15, V across 13 and 14
             Nulled preamp offset for 10x gain
             """),
             "cooldown": 3,
