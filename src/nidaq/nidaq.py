@@ -556,7 +556,7 @@ def nidaq():
             "execution": execution,
             "comment": inspect.cleandoc(f"""
             Others grounded
-            Source 15, sink 14, V across 13 and 16
+            Source 15, sink 14, V across 13 (NC) and 16
             (swapped V filters, but kept same coaxes)
             Nulled preamp offset for 10x gain
             """),
