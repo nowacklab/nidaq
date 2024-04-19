@@ -556,9 +556,8 @@ def nidaq():
             "execution": execution,
             "comment": inspect.cleandoc(f"""
             Others grounded
-            Source 15, sink 14, V across 13 and 16
+            Source 15, sink 14, V across 16 and 13
             No IV filters and other filters same
-            Fixed preamp (was grounded before)
             """),
             "cooldown": 3,
             "device": {
