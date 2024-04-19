@@ -555,9 +555,9 @@ def nidaq():
     p = { # Parameters
             "execution": execution,
             "comment": inspect.cleandoc(f"""
-            Check validity by measuring Cernox IV
+            First warm IV
             Others grounded
-            Source 17, sink 20, V across 18 and 19
+            Source 16, sink 14, V across 13 and 15
             Nulled preamp offset for 10x gain
             """),
             "cooldown": 3,
@@ -605,9 +605,8 @@ def nidaq():
                 "daqTriangleCurrentFromZero": {
                     "device": deviceName,
                     "channel": "ao0",
-                    "totalResistanceOhms": 7.96e3,
-                    #"totalResistanceOhms": 14.27e3 + 2.5e3 - 9.02e3,
-                    "amplitudeAmps": 10e-6,
+                    "totalResistanceOhms": 14.27e3 + 2.5e3 - 9.02e3,
+                    "amplitudeAmps": 100e-6,
                     "stepAmps": 40e-9,
                     "regenerations": 1,
                     "maxFrequency": 1.0,
