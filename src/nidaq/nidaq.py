@@ -556,7 +556,7 @@ def nidaq():
             "execution": execution,
             "comment": inspect.cleandoc(f"""
             Others grounded
-            Source 13, sink 16, V across 14 and 15
+            Source 14, sink 15, V across 13 and 16
             Nulled preamp offset for 10x gain
             """),
             "cooldown": 3,
