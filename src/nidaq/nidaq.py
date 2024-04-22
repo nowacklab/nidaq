@@ -580,7 +580,7 @@ def nidaq():
                 "cernoxVB": 1e6,
                 },
             "preamp": {
-                "gain": 50,
+                "gain": 1000,
                 "filter": {
                     "mode": "6 dB/oct low-pass",
                     "frequencyHz": 30e3,
@@ -603,7 +603,7 @@ def nidaq():
                 "daqTriangleCurrentFromZero": {
                     "device": deviceName,
                     "channel": "ao0",
-                    "totalResistanceOhms": 14.27e3 + 2.5e3 - 9.02e3,
+                    "totalResistanceOhms": 7.2e3,
                     "amplitudeAmps": 100e-6,
                     "stepAmps": 40e-9,
                     "regenerations": 1,
@@ -612,8 +612,8 @@ def nidaq():
                 "input": {
                     "device": deviceName,
                     "channel": "ai16",
-                    "minVoltage": -0.5,
-                    "maxVoltage": 0.5,
+                    "minVoltage": -0.1,
+                    "maxVoltage": 0.1,
                     },
                 "daqioDataPath": Path(os.path.relpath(daqioDataPath, parametersPath.parent)).as_posix(),
                 "daqVersionInformation": {
