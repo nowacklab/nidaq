@@ -570,7 +570,7 @@ def nidaq():
                 "coldResistanceOhm": 0.736e3,
                 },
             "preamp": {
-                "gain": 1000,
+                "gain": 250,
                 "filter": {
                     "mode": "6 dB/oct low-pass",
                     "frequencyHz": 30e3,
@@ -604,8 +604,8 @@ def nidaq():
                 "input": {
                     "device": deviceName,
                     "channel": "ai16",
-                    "minVoltage": -0.5,
-                    "maxVoltage": 0.5,
+                    "minVoltage": -0.1,
+                    "maxVoltage": 0.1,
                     },
                 "daqioDataPath": Path(os.path.relpath(daqioDataPath, parametersPath.parent)).as_posix(),
                 "daqVersionInformation": {
