@@ -580,7 +580,7 @@ def nidaq():
                 "cernoxVB": 1e6,
                 },
             "preamp": {
-                "gain": 500,
+                "gain": 250,
                 "filter": {
                     "mode": "6 dB/oct low-pass",
                     "frequencyHz": 30e3,
