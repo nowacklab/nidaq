@@ -556,7 +556,7 @@ def nidaq():
             "execution": execution,
             "comment": inspect.cleandoc(f"""
             Others grounded
-            Source 15, sink 14, V across 13 and 16
+            Source 15, sink 16, V across 13 and 14
             No IV filters
             """),
             "cooldown": 3,
@@ -678,7 +678,7 @@ def nidaq():
 #           heaterMinV, heaterMaxV = np.min(heaterVoltagesV), np.max(heaterVoltagesV)
 #           with open(daqioDataPath.resolve(), "xb+") as dataFile, npaa(heaterTemperaturePath.resolve()) as heaterTemperatures:
             with open(daqioDataPath.resolve(), "xb+") as dataFile:
-               #for (i, heaterVoltageV) in enumerate(heaterVoltagesV):
+               #for (i, heaterVoltagedaqiv-2024-04-19T151422d975543-0400V) in enumerate(heaterVoltagesV):
                #    print(f"({i + 1} / {heaterSamples}) heater at {heaterVoltageV:0.2f} V in [{heaterMinV:0.2f}, {heaterMaxV:0.2f}]", flush = True)
                #    mf.auxouts[2].offset(heaterVoltageV)
                #    busysleep(heaterThermalizationSeconds)
