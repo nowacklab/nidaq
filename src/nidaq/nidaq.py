@@ -606,9 +606,10 @@ def nidaq():
                     "channel": "ao0",
                     #"totalResistanceOhms": 7.2e3, # SQUID
                     #"amplitudeAmps": 100e-6, # SQUID
+                    #"stepAmps": 40e-9, # SQUID
                     "totalResistanceOhms": 2.087e3, # Cernox
-                    "amplitudeAmps": 15e-6, # Cernox
-                    "stepAmps": 40e-9,
+                    "amplitudeAmps": 12e-6, # Cernox
+                    "stepAmps": 50e-9, # Cernox
                     "regenerations": 1,
                     "maxFrequency": 0.1,
                     },
