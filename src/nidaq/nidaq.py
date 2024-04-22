@@ -558,6 +558,7 @@ def nidaq():
             Others grounded
             Source 20, sink 17, V across 19 and 18
             No IV filters
+            Removed 1 MHz filter from preamp output.
             """),
             "cooldown": 3,
             "device": {
@@ -568,20 +569,8 @@ def nidaq():
                 "totalResistanceOhm": 1.068e3,
                 "coldResistanceOhm": 0.736e3,
                 },
-            "filterCutoffs": {
-                "daqOutput": 100e3,
-                "preampA": 100e3,
-                "preampB": 100e3,
-                "daqInput": 1e6,
-                "magnet": 100e3,
-                "heater": 100e3,
-                "cernoxISource": 1e6,
-                "cernoxISink": 1e6,
-                "cernoxVA": 1e6,
-                "cernoxVB": 1e6,
-                },
             "preamp": {
-                "gain": 250,
+                "gain": 1000,
                 "filter": {
                     "mode": "6 dB/oct low-pass",
                     "frequencyHz": 30e3,
@@ -615,8 +604,8 @@ def nidaq():
                 "input": {
                     "device": deviceName,
                     "channel": "ai16",
-                    "minVoltage": -5.0,
-                    "maxVoltage": 5.0,
+                    "minVoltage": -0.5,
+                    "maxVoltage": 0.5,
                     },
                 "daqioDataPath": Path(os.path.relpath(daqioDataPath, parametersPath.parent)).as_posix(),
                 "daqVersionInformation": {
