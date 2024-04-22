@@ -556,12 +556,13 @@ def nidaq():
             "execution": execution,
             "comment": inspect.cleandoc(f"""
             Others grounded
-            Source 9, sink 12, V across 10 and 11
+            Source 20, sink 17, V across 19 and 18
             No IV filters
             """),
             "cooldown": 3,
             "device": {
-                "id": "ns30q1",
+                #"id": "ns30q1",
+                "id": "Cernox X160190",
                 },
             "heater": { # Sweep parameters filled in later
                 "totalResistanceOhm": 1.068e3,
@@ -580,7 +581,7 @@ def nidaq():
                 "cernoxVB": 1e6,
                 },
             "preamp": {
-                "gain": 1000,
+                "gain": 250,
                 "filter": {
                     "mode": "6 dB/oct low-pass",
                     "frequencyHz": 30e3,
@@ -603,8 +604,10 @@ def nidaq():
                 "daqTriangleCurrentFromZero": {
                     "device": deviceName,
                     "channel": "ao0",
-                    "totalResistanceOhms": 7.2e3,
-                    "amplitudeAmps": 100e-6,
+                    #"totalResistanceOhms": 7.2e3, # SQUID
+                    #"amplitudeAmps": 100e-6, # SQUID
+                    "totalResistanceOhms": 2.087e3, # Cernox
+                    "amplitudeAmps": 12e-6, # Cernox
                     "stepAmps": 40e-9,
                     "regenerations": 1,
                     "maxFrequency": 0.1,
@@ -612,8 +615,8 @@ def nidaq():
                 "input": {
                     "device": deviceName,
                     "channel": "ai16",
-                    "minVoltage": -0.1,
-                    "maxVoltage": 0.1,
+                    "minVoltage": -5.0,
+                    "maxVoltage": 5.0,
                     },
                 "daqioDataPath": Path(os.path.relpath(daqioDataPath, parametersPath.parent)).as_posix(),
                 "daqVersionInformation": {
