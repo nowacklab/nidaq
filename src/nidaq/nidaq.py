@@ -556,7 +556,7 @@ def nidaq():
             "execution": execution,
             "comment": inspect.cleandoc(f"""
             Others grounded
-            Source 7, sink 8, V across 5 and 6
+            Source 8, sink 6, V across 5 and 7
             No IV filters
             """),
             "cooldown": 3,
@@ -580,7 +580,7 @@ def nidaq():
                 "cernoxVB": 1e6,
                 },
             "preamp": {
-                "gain": 1000,
+                "gain": 250,
                 "filter": {
                     "mode": "6 dB/oct low-pass",
                     "frequencyHz": 30e3,
@@ -612,8 +612,8 @@ def nidaq():
                 "input": {
                     "device": deviceName,
                     "channel": "ai16",
-                    "minVoltage": -0.1,
-                    "maxVoltage": 0.1,
+                    "minVoltage": -10.0,
+                    "maxVoltage": 10.0,
                     },
                 "daqioDataPath": Path(os.path.relpath(daqioDataPath, parametersPath.parent)).as_posix(),
                 "daqVersionInformation": {
