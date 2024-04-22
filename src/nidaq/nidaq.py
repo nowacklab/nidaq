@@ -604,12 +604,11 @@ def nidaq():
                 "daqTriangleCurrentFromZero": {
                     "device": deviceName,
                     "channel": "ao0",
-                    #"totalResistanceOhms": 7.2e3, # SQUID
+                    #"totalResistanceOhms": 7.24e3, # Estimated typical SQUID
                     #"amplitudeAmps": 100e-6, # SQUID
-                    #"stepAmps": 40e-9, # SQUID
-                    "totalResistanceOhms": 2.087e3, # Cernox
+                    "totalResistanceOhms": 7.27e3, # Cernox
                     "amplitudeAmps": 12e-6, # Cernox
-                    "stepAmps": 50e-9, # Cernox
+                    "stepAmps": 40e-9,
                     "regenerations": 1,
                     "maxFrequency": 0.1,
                     },
