@@ -556,7 +556,7 @@ def nidaq():
             "execution": execution,
             "comment": inspect.cleandoc(f"""
             Others grounded
-            Source 8, sink 5, V across 6 and 7
+            Source 8, sink 6, V across 5 and 7
             No IV filters
             """),
             "cooldown": 3,
