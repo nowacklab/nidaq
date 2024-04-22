@@ -612,8 +612,8 @@ def nidaq():
                 "input": {
                     "device": deviceName,
                     "channel": "ai16",
-                    "minVoltage": -2.0,
-                    "maxVoltage": 2.0,
+                    "minVoltage": -5.0,
+                    "maxVoltage": 5.0,
                     },
                 "daqioDataPath": Path(os.path.relpath(daqioDataPath, parametersPath.parent)).as_posix(),
                 "daqVersionInformation": {
