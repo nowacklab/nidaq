@@ -556,13 +556,12 @@ def nidaq():
             "execution": execution,
             "comment": inspect.cleandoc(f"""
             Others grounded
-            Source 15, sink 16, V across 13 and 14
-            No IV filters and other filters same
+            Source 15, sink 14, V across 13 and 16
+            No IV filters
             """),
             "cooldown": 3,
             "device": {
-                #"id": "ns30q1d3",
-                "id": "Cernox X160190",
+                "id": "ns30q1",
                 },
             "heater": { # Sweep parameters filled in later
                 "totalResistanceOhm": 1.068e3,
