@@ -568,13 +568,13 @@ def nidaq():
             "execution": execution,
             "comment": inspect.cleandoc(f"""
             Others grounded
-            Source 20, sink 17, V across 19 and 18
-            Test racy file-based control
+            Source 16, sink 14, V across 15 and 13
+            Racy file-based control
             """),
-            "cooldown": 3,
+            "cooldown": 4,
             "device": {
-                #"id": "ns30q1",
-                "id": "Cernox X160190",
+                "id": "ns30q1",
+                #"id": "Cernox X160190",
                 },
             "heater": { # Sweep parameters filled in later
                 "totalResistanceOhm": 1.068e3,
@@ -604,10 +604,10 @@ def nidaq():
                 "daqTriangleCurrentFromZero": {
                     "device": deviceName,
                     "channel": "ao0",
-                    #"totalResistanceOhms": 7.24e3, # Estimated typical SQUID
-                    #"amplitudeAmps": 100e-6, # SQUID
-                    "totalResistanceOhms": 7.27e3, # Cernox
-                    "amplitudeAmps": 12e-6, # Cernox
+                    "totalResistanceOhms": 7.24e3, # Estimated typical SQUID
+                    "amplitudeAmps": 50e-6, # SQUID
+                    #"totalResistanceOhms": 7.27e3, # Cernox
+                    #"amplitudeAmps": 12e-6, # Cernox
                     "stepAmps": 40e-9,
                     "regenerations": 1,
                     "maxFrequency": 1.0,
