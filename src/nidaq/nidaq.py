@@ -608,7 +608,8 @@ def nidaq():
                     "amplitudeAmps": 50e-6, # SQUID
                     #"totalResistanceOhms": 7.27e3, # Cernox
                     #"amplitudeAmps": 12e-6, # Cernox
-                    "stepAmps": 40e-9,
+                    #"stepAmps": 40e-9,
+                    "stepAmps": 0.5e-6, # Fewer data while taking IVs over time
                     "regenerations": 1,
                     "maxFrequency": 1.0,
                     },
