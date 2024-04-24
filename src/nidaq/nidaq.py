@@ -613,7 +613,7 @@ def nidaq():
                     "amplitudeAmps": 12e-6, # Cernox
                     "stepAmps": 40e-9,
                     "regenerations": 1,
-                    "maxFrequency": 0.1,
+                    "maxFrequency": 1.0,
                     },
                 "input": {
                     "device": deviceName,
@@ -722,6 +722,7 @@ def nidaq():
                             try:
                                 preamp.wake()
                                 preamp.gain = gain
+                                time.sleep(0.2)
                                 preamp.sleep()
                                 gain = setGain
                             except Exception:
