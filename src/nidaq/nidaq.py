@@ -679,7 +679,7 @@ def nidaq():
                 f.write(parametersJSON)
             
             # Set up preamp and gain control
-            preamp = SR5113(parameters["preamp"]["instrument"]["port"])
+            preamp = SR5113(p["preamp"]["instrument"]["port"])
             gain = preamp.gain
             preamp.sleep()
             with open(gainControlPath, "w") as f:
