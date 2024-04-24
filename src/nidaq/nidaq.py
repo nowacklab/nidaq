@@ -688,10 +688,6 @@ def nidaq():
                     "newPath": newPath(rootDirectory = parametersRootDirectory, relativeTo = parametersPath.parent),
                     })
                 f.write(parametersJSON)
-            
-            cernox_R_Ohms = cernoxResistanceOhms(hf2li)
-            with npaa(initialTemperaturePath) as initialTemperatures:
-                initialTemperatures.append(np.array([cernox_Ohm_to_K(cernox_R_Ohms)]))
 
 #           heaterSamples = len(heaterVoltagesV)
 #           heaterMinV, heaterMaxV = np.min(heaterVoltagesV), np.max(heaterVoltagesV)
@@ -734,9 +730,18 @@ def nidaq():
 
                     with npaa(gainPath) as gains:
                         gains.append(np.array([gain]))
+
+                    cernox_R_Ohms = cernoxResistanceOhms(hf2li)
+                    with npaa(initialTemperaturePath) as initialTemperatures:
+                        initialTemperatures.append(np.array([cernox_Ohm_to_K(cernox_R_Ohms)]))
                             
                     logging.info(f"Running io {ioCount}")
                     daqioHardwareParameters = asyncio.run(daqSingleIO(daqio, dataFile = dataFile))
+
+                    cernox_R_Ohms = cernoxResistanceOhms(hf2li)
+                    with npaa(finalTemperaturePath) as finalTemperatures:
+                        finalTemperatures.append(np.array([cernox_Ohm_to_K(cernox_R_Ohms)]))
+
                     with open(ioCountOutputPath, "w") as f:
                         f.write(f"{ioCount}") # It is fast enough, so write strings for human-editability
                     ioCount += 1
@@ -749,17 +754,6 @@ def nidaq():
                     except OSError:
                         logging.warn("Could not read stop control file at '{stopControlPath.resolve()}'. Continuing.")
                #   heaterTemperatures.append(np.array([cernox_Ohm_to_K(cernoxResistanceOhms(hf2li))]))
-
-            # Sometimes the HF2LI data server dies on Orenstein,
-            # so ignore a failed attempt to read the thermometer at the end,
-            # rather than have an error and not write the parameters.
-            try:
-                cernox_R_Ohms = cernoxResistanceOhms(hf2li)
-                with npaa(finalTemperaturePath) as finalTemperatures:
-                    finalTemperatures.append(np.array([cernox_Ohm_to_K(cernox_R_Ohms)]))
-            except Exception:
-                pass
-
 
     finally:
         output.task.close()
