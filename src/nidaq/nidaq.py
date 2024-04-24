@@ -545,6 +545,7 @@ def nidaq():
     heaterTemperaturePath = dataRootDirectory / Path("heater-temperatures-K.npy")
 
     gainControlPath = dataRootDirectory / Path("gain.control.txt")
+    gainPath = dataRootDirectory / Path("gain.npy")
     stopControlPath = dataRootDirectory / Path("stop.control.txt")
     ioCountOutputPath = dataRootDirectory / Path("io_count.output.txt")
 
@@ -580,7 +581,9 @@ def nidaq():
                 "coldResistanceOhm": 0.736e3,
                 },
             "preamp": {
-                #"gain": 250,
+                "gain": {
+                    "path": Path(os.path.relpath(daqioDataPath, gainPath.parent)).as_posix(),
+                    },
                 "filter": {
                     "mode": "6 dB/oct low-pass",
                     "frequencyHz": 30e3,
@@ -725,6 +728,9 @@ def nidaq():
                                 logging.warn(f"Could not set preamp gain to {setGain}. Keeping old gain: {gain}")
                     except OSError:
                         logging.warn(f"Could not read gain control file at '{gainControlPath.resolve()}'. Keeping old gain: {gain}")
+
+                    with npaa(gainPath) as gains:
+                        gains.append(np.array([gain]))
                             
                     logging.info(f"Running io {ioCount}")
                     daqioHardwareParameters = asyncio.run(daqSingleIO(daqio, dataFile = dataFile))
