@@ -610,7 +610,7 @@ def nidaq():
                     "amplitudeAmps": 12e-6, # Cernox
                     "stepAmps": 40e-9,
                     "regenerations": 1,
-                    "maxFrequency": 1.0,
+                    "maxFrequency": 0.1,
                     },
                 "input": {
                     "device": deviceName,
@@ -672,12 +672,7 @@ def nidaq():
                 f.write(parametersJSON)
         else:
             print(dataRootDirectory)
-            with open(parametersPath.resolve(), "x") as f:
-                parametersJSON = json.dumps(p, indent = 2, cls = RecordJSONEncoder, state = {
-                    "newPath": newPath(rootDirectory = parametersRootDirectory, relativeTo = parametersPath.parent),
-                    })
-                f.write(parametersJSON)
-            
+
             # Set up preamp and gain control
             preamp = SR5113(p["preamp"]["instrument"]["port"])
             gain = preamp.gain
@@ -686,6 +681,13 @@ def nidaq():
             with open(gainControlPath, "w") as f:
                 f.write(f"{gain}")
 
+            # Write static parameters
+            with open(parametersPath.resolve(), "x") as f:
+                parametersJSON = json.dumps(p, indent = 2, cls = RecordJSONEncoder, state = {
+                    "newPath": newPath(rootDirectory = parametersRootDirectory, relativeTo = parametersPath.parent),
+                    })
+                f.write(parametersJSON)
+            
             cernox_R_Ohms = cernoxResistanceOhms(hf2li)
             with npaa(initialTemperaturePath) as initialTemperatures:
                 initialTemperatures.append(np.array([cernox_Ohm_to_K(cernox_R_Ohms)]))
