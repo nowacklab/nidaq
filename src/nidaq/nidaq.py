@@ -720,8 +720,9 @@ def nidaq():
                                 logging.warn(f"Could not parse gain from '{message}'. Keeping old gain: {gain}")
                         if setGain != gain: # Preamp gains are small enough to be exactly respresentable as floats
                             try:
+                                logging.info(f"Setting gain to {setGain} from {gain}")
                                 preamp.wake()
-                                preamp.gain = gain
+                                preamp.gain = setGain
                                 time.sleep(0.2)
                                 preamp.sleep()
                                 gain = setGain
