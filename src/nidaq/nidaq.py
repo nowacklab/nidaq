@@ -584,10 +584,7 @@ def nidaq():
                 "gain": {
                     "path": Path(os.path.relpath(gainPath, parametersPath.parent)).as_posix(),
                     },
-                "filter": {
-                    "mode": "6 dB/oct low-pass",
-                    "frequencyHz": 30e3,
-                    },
+                "cutoffFrequencyHz": 0.0, # Filled in later
                 "instrument": {
                     "port": "COM4",
                     "name": "Signal Recovery 5113",
@@ -684,6 +681,7 @@ def nidaq():
             # Set up preamp and gain control
             preamp = SR5113(p["preamp"]["instrument"]["port"])
             gain = preamp.gain
+            p["preamp"]["cutoffFrequencyHz"] = preamp.filter[1]
             preamp.sleep()
             with open(gainControlPath, "w") as f:
                 f.write(f"{gain}")
