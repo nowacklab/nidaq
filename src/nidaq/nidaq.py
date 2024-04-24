@@ -582,7 +582,7 @@ def nidaq():
                 },
             "preamp": {
                 "gain": {
-                    "path": Path(os.path.relpath(daqioDataPath, gainPath.parent)).as_posix(),
+                    "path": Path(os.path.relpath(gainPath, parametersPath.parent)).as_posix(),
                     },
                 "filter": {
                     "mode": "6 dB/oct low-pass",
