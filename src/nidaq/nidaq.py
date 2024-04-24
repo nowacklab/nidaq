@@ -538,8 +538,17 @@ def nidaq():
     rootDirectory = Path("daqiv-" + timePathComponent(startTime))
     dataRootDirectory = rootDirectory
     daqioDataPath = dataRootDirectory / Path("input-samples.bin")
+
     heaterVoltagePath = dataRootDirectory / Path("heater-voltages-V.npy")
     heaterTemperaturePath = dataRootDirectory / Path("heater-temperatures-K.npy")
+
+    gainControlPath = dataRootDirectory / Path("gain.control.txt")
+    stopControlPath = dataRootDirectory / Path("stop.control.txt")
+    ioCountOutputPath = dataRootDirectory / Path("io_count.output.txt")
+
+    initialTemperaturePath = dataRootDirectory / Path("initial-temperatures-K.npy")
+    finalTemperaturePath = dataRootDirectory / Path("final-temperatures-K.npy")
+
     parametersPath = rootDirectory / Path("parameters.json")
     parametersRootDirectory = parametersPath.parent # / Path("parameter-data")
 
@@ -557,8 +566,7 @@ def nidaq():
             "comment": inspect.cleandoc(f"""
             Others grounded
             Source 20, sink 17, V across 19 and 18
-            No IV filters
-            Removed 1 MHz filter from preamp output.
+            Test racy file-based control
             """),
             "cooldown": 3,
             "device": {
@@ -570,12 +578,13 @@ def nidaq():
                 "coldResistanceOhm": 0.736e3,
                 },
             "preamp": {
-                "gain": 250,
+                #"gain": 250,
                 "filter": {
                     "mode": "6 dB/oct low-pass",
                     "frequencyHz": 30e3,
                     },
                 "instrument": {
+                    "port": "COM4",
                     "name": "Signal Recovery 5113",
                     "serial": "17214017",
                     "rev": "1B",
@@ -661,40 +670,85 @@ def nidaq():
                 f.write(parametersJSON)
         else:
             print(dataRootDirectory)
+            with open(parametersPath.resolve(), "x") as f:
+                parametersJSON = json.dumps(p, indent = 2, cls = RecordJSONEncoder, state = {
+                    "newPath": newPath(rootDirectory = parametersRootDirectory, relativeTo = parametersPath.parent),
+                    })
+                f.write(parametersJSON)
+            
+            # Set up preamp and gain control
+            preamp = SR5113(parameters["preamp"]["instrument"]["port"])
+            gain = preamp.gain
+            preamp.sleep()
+            with open(gainControlPath, "w") as f:
+                f.write(f"{gain}")
 
             cernox_R_Ohms = cernoxResistanceOhms(hf2li)
-            p["thermometer"]["initialResistanceOhms"] = cernox_R_Ohms
-            p["thermometer"]["initialTemperatureK"] = cernox_Ohm_to_K(cernox_R_Ohms)
+            with npaa(initialTemperaturePath) as initialTemperatures:
+                initialTemperatures.append(np.array([cernox_Ohm_to_K(cernox_R_Ohms)]))
 
 #           heaterSamples = len(heaterVoltagesV)
 #           heaterMinV, heaterMaxV = np.min(heaterVoltagesV), np.max(heaterVoltagesV)
 #           with open(daqioDataPath.resolve(), "xb+") as dataFile, npaa(heaterTemperaturePath.resolve()) as heaterTemperatures:
             with open(daqioDataPath.resolve(), "xb+") as dataFile:
-               #for (i, heaterVoltagedaqiv-2024-04-19T151422d975543-0400V) in enumerate(heaterVoltagesV):
+               #for (i, heaterVoltage) in enumerate(heaterVoltagesV):
                #    print(f"({i + 1} / {heaterSamples}) heater at {heaterVoltageV:0.2f} V in [{heaterMinV:0.2f}, {heaterMaxV:0.2f}]", flush = True)
                #    mf.auxouts[2].offset(heaterVoltageV)
                #    busysleep(heaterThermalizationSeconds)
                #    heaterTemperatures.append(np.array([cernox_Ohm_to_K(cernoxResistanceOhms(hf2li))]))
-                daqioHardwareParameters = asyncio.run(daqSingleIO(daqio, dataFile = dataFile))
-               #   heaterTemperatures.append(np.array([cernox_Ohm_to_K(cernoxResistanceOhms(hf2li))]))
+                ioCount = 0
+                with open(ioCountOutputPath, "w") as f:
+                    f.write(f"{ioCount}")
 
-            #mf.auxouts[2].offset(0.0)
+                stopped = False
+                stopControlPath.touch()
+
+                while not stopped:
+                    # Gain control
+                    try:
+                        setGain = gain
+                        with open(gainControlPath, "r") as f:
+                            message = f.read()
+                            try:
+                                setGain = float(message)
+                            except ValueError:
+                                logging.warn(f"Could not parse gain from '{message}'. Keeping old gain: {gain}")
+                        if setGain != gain: # Preamp gains are small enough to be exactly respresentable as floats
+                            try:
+                                preamp.wake()
+                                preamp.gain = gain
+                                preamp.sleep()
+                                gain = setGain
+                            except Exception:
+                                logging.warn(f"Could not set preamp gain to {setGain}. Keeping old gain: {gain}")
+                    except OSError:
+                        logging.warn(f"Could not read gain control file at '{gainControlPath.resolve()}'. Keeping old gain: {gain}")
+                            
+                    logging.info(f"Running io {ioCount}")
+                    daqioHardwareParameters = asyncio.run(daqSingleIO(daqio, dataFile = dataFile))
+                    with open(ioCountOutputPath, "w") as f:
+                        f.write(f"{ioCount}") # It is fast enough, so write strings for human-editability
+                    ioCount += 1
+
+                    try:
+                        with open(stopControlPath, "r") as f:
+                            status = f.read()
+                            if status.startswith("stop"): # Test start not equality, so that trailing space is ignored
+                                stopped = True
+                    except OSError:
+                        logging.warn("Could not read stop control file at '{stopControlPath.resolve()}'. Continuing.")
+               #   heaterTemperatures.append(np.array([cernox_Ohm_to_K(cernoxResistanceOhms(hf2li))]))
 
             # Sometimes the HF2LI data server dies on Orenstein,
             # so ignore a failed attempt to read the thermometer at the end,
             # rather than have an error and not write the parameters.
             try:
                 cernox_R_Ohms = cernoxResistanceOhms(hf2li)
-                p["thermometer"]["finalResistanceOhms"] = cernox_R_Ohms
-                p["thermometer"]["finalTemperatureK"] = cernox_Ohm_to_K(cernox_R_Ohms)
+                with npaa(finalTemperaturePath) as finalTemperatures:
+                    finalTemperatures.append(np.array([cernox_Ohm_to_K(cernox_R_Ohms)]))
             except Exception:
                 pass
 
-            with open(parametersPath.resolve(), "x") as f:
-                parametersJSON = json.dumps(p, indent = 2, cls = RecordJSONEncoder, state = {
-                    "newPath": newPath(rootDirectory = parametersRootDirectory, relativeTo = parametersPath.parent),
-                    })
-                f.write(parametersJSON)
 
     finally:
         output.task.close()
