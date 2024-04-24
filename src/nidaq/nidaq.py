@@ -570,6 +570,7 @@ def nidaq():
             Others grounded
             Source 16, sink 14, V across 15 and 13
             Racy file-based control
+            Actual cooldown
             """),
             "cooldown": 4,
             "device": {
