@@ -33,6 +33,8 @@ from nidaqmx.stream_writers import AnalogSingleChannelWriter, AnalogUnscaledWrit
 from nidaqmx.stream_readers import AnalogSingleChannelReader, AnalogUnscaledReader
 from nidaqmx.constants import AcquisitionType, Edge, RegenerationMode, TerminalConfiguration, WAIT_INFINITELY, ResolutionType
 
+from Nowack_Lab.Instruments.preamp import SR5113
+
 import argparse
 import webbrowser # for opening source files, despite the name
 import subprocess
